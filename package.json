@@ -1,0 +1,37 @@
+{
+  "name": "chai-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shhKnight30/chai-bakcend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shhKnight30/chai-bakcend/issues"
+  },
+  "homepage": "https://github.com/shhKnight30/chai-bakcend#readme",
+  "description": "",
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cloudinary": "^2.6.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.13.2",
+    "mongoose-aggregate-paginate-v2": "^1.1.4",
+    "multer": "^1.4.5-lts.2"
+  }
+}
