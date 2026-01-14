@@ -61,7 +61,7 @@ const registerUser = asyncHandler(async(req,res) =>{
         console.log("not uploading on cloudinry")
         throw new ApiError(400,"avatar file is required")
     }
-    console.log(username)
+    // console.log(username)
     const user = await User.create({
         username,
         fullname,
@@ -78,12 +78,13 @@ const registerUser = asyncHandler(async(req,res) =>{
     if(!createdUser){
         throw new ApiError(500,"something went wrong while registering the user")
     } 
+    const {accessToken , refreshToken} = await generateAccessAndRefreshTokens(user._id)
     console.log("Request keys:", Object.keys(req));
     console.log("req.body:", req.body);
     console.log("req.file:", req.file);
     console.log("req.files:", req.files); 
     return res.status(201).json(
-        new ApiResponse(200,createdUser,"user registered successfully")
+        new ApiResponse(200,{user: createdUser,accessToken,refreshToken},"user registered successfully")
     )
 })
 
@@ -100,7 +101,7 @@ const loginUser = asyncHandler(async(req,res)=>{
     }
 
     const {email , password} = await body()
-    console.log(email)
+    // console.log(email)
     if(!email){
         throw new ApiError(400,"missingemail");
     }
@@ -109,11 +110,11 @@ const loginUser = asyncHandler(async(req,res)=>{
     if(!user){
         throw new ApiError(404,"user does not exist")
     }
-    console.log(password)
-    console.log(user.password)
-    console.log(password === user.password)
+    // console.log(password)
+    // console.log(user.password)
+    // console.log(password === user.password)
     const isPasswordValid = await user.isPasswordCorrect(password)
-    console.log(isPasswordValid)
+    // console.log(isPasswordValid)
     if(!isPasswordValid){
         throw new ApiError(401,"invalid user credentials")
     }
@@ -209,16 +210,19 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
 
 const changeCurrentPassword = asyncHandler(async(req,res)=>{
     const {oldPassword, newPassword} = req.body
-    
-    const user = await User.find(req.user?._id)
-    if(!oldPassword && !newPassword){
+    if(!oldPassword || !newPassword){
         throw new ApiError(400,"all fields are required")
+    }
+    
+    const user = await User.findById(req.user?._id)
+    if(!user){
+        throw new ApiError(404,"User not found")
     }
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
     if(!isPasswordCorrect){
-        throw new ApiError(400,"invalid password")
+        throw new ApiError(400,"invalid old password")
     }
-    user.password = password
+    user.password = newPassword
     await user.save({validateBeforeSave: false})
 
     return  res
@@ -231,7 +235,7 @@ const changeCurrentPassword = asyncHandler(async(req,res)=>{
 const getCurrentUser = asyncHandler(async(req,res)=>{
     return res
     .status(200)
-    .json(200,req.user,"current user fetched successfully")
+    .json(new ApiResponse(200,req.user,"current user fetched successfully"))
 })
 
 
@@ -270,7 +274,7 @@ const updateUserAvatar = asyncHandler(async(req,res)=>{
     const avatar = await uploadOnCloudinary(avatarLocalPath)
 
     if(!avatar.url){
-        throw new ApiError(400,"Erro while uploading avatar file")
+        throw new ApiError(400,"Error while uploading avatar file")
     }
     const user = await User.findByIdAndUpdate(
         req.user?._id,
@@ -292,7 +296,7 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
     if(!coverImageLocalPath){
         throw new ApiError(400,"cover image not found")
     }
-    const coverImage = uploadOnCloudinary(coverImageLocalPath)
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
     if(!coverImage){
         throw new ApiError(400,"error while uploading cover image file")
     }
@@ -309,7 +313,7 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
     return res
     .status(200)
     .json(
-        new ApiResponse(200,"Cover Image uploaded successfully")
+        new ApiResponse(200,user,"Cover Image uploaded successfully")
     )
 })
 

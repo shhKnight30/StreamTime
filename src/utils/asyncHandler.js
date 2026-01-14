@@ -16,6 +16,7 @@ const asyncHandler = (requestHandler)=>{
         })
     }
 }
+export {asyncHandler}
 
 // const asyncHandler = (fn)=> async (req,res,next) =>{
     //     try {
@@ -42,4 +43,3 @@ const asyncHandler = (requestHandler)=>{
                 //     }
                 // }
                 
-                export {asyncHandler}

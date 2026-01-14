@@ -1,6 +1,9 @@
 import cookieParser from 'cookie-parser'
 import express from 'express'
 import cors from  "cors"
+import { specs, swaggerUiOptions } from './config/swagger.js';
+import swaggerUi from 'swagger-ui-express';
+
 
 const app = express()
 app.use(cors({
@@ -13,11 +16,12 @@ app.use(express.json({limit:"16kb"}))
 app.use(express.urlencoded({extended:true,limit:'4kb'}))
 app.use(express.static('public'))
 app.use(cookieParser())
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 import  userRouter from "./routes/user.routes.js"
 
 app.use('/api/v1/users',userRouter)
-console.log("hellodskjfak")
+
 
 
 
