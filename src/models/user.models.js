@@ -42,6 +42,22 @@ const userSchema = Schema({
     },
     refreshToken:{
         type:String
+    },
+    channelName: {
+    type: String,
+    trim: true,
+    default: function() {
+        return this.username; 
+    }
+    },
+    channelDescription: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+    subscriberCount: {
+        type: Number,
+        default: 0
     }
 
 },
