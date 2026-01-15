@@ -103,7 +103,7 @@ const getAllVideos = asyncHandler(async (req,res)=>{
                     page,
                     limit,
                     total,
-                    pages:Math.ceil(total/limits)
+                    pages:Math.ceil(total/limit)
                 }
             },
             "Videos fetched successfully")
@@ -121,15 +121,17 @@ const getVideoById = asyncHandler(async (req, res) =>{
     }
     video.views +=1
     await video.save()
-    return res.status(200,json(new ApiResponse(200,video,"Video fetched successfully")))
+    return res.status(200).json(new ApiResponse(200,video,"Video fetched successfully"))
 })
 
 const updateVideo = asyncHandler(async (req, res)=> {
-    const {videoid} = req.params
+    const {videoId} = req.params
     const {title , description, visibility , tags ,category} = req.body
-    const video= await Video.findById(videoid)
+    const video= await Video.findById(videoId)
     if(!video)throw new ApiError(404 , "video not found")
-    
+    if(video.owner.toString()!== req.user?._id.toString()){
+        throw new ApiError(403, "Unauthorized access")
+    }
     if(title)video.title = title
     if(description)video.description = description
     if(visibility)video.visibility = visibility
@@ -137,26 +139,25 @@ const updateVideo = asyncHandler(async (req, res)=> {
     if(category)video.category = category
 
     await video.save()
-    return res.status(200, json(new ApiResponse(200, video, "Video Details Successfully updated ")))
+    return res.status(200).json(new ApiResponse(200, video, "Video Details Successfully updated "))
     
 })
 
 
 const deleteVideo = asyncHandler(async (req, res)=>{
     const {videoId} = req.params
-    const video = Video.findById(videoId)
+    const video = await Video.findById(videoId)
     if(!video)throw new ApiError(404, "Video not found")
-    
     if(video.owner.toString()!== req.user._id.toString())throw new ApiError(403, "Unauthorized Request")
-    await Video(findByIdAndDelete(videoId))
+    // await Video(findByIdAndDelete(videoId))
+    await Video.findByIdAndDelete(videoId)
 
     return res.status(200).json(
         new ApiResponse(200,{} , "Video deleted Successfully")
     )
 })
-
 const getUserVideos = asyncHandler(async ( req , res) =>{
-    const {page =1, linit =1 } = req.query
+    const {page =1, limit =10 } = req.query
     const videos = await Video.find({owner: req.user?._id})
     .sort({createdAt :-1})
     .limit(limit * 1)
@@ -164,15 +165,59 @@ const getUserVideos = asyncHandler(async ( req , res) =>{
 
     const total = await Video.countDocuments({owner : req.user?._id})
     return res.status(200).json(
-        {videos,
+        new ApiResponse(200,{videos,
         pagination:{
             page,
             limit,
             total,
             pages : Math.ceil(total/limit)
-        }},"user videos fetched successfully"
+        }},"user videos fetched successfully"))
+})
+
+const searchVideos = asyncHandler(async (req,res) =>{
+    const { q , page =1 , limit = 10 , category , tags} = req.query
+    let query = {
+        visibility : 'public',
+        isPublished : true
+    }
+    if(q){
+        query.$or = [
+            {title :{ $regex : q, $options : 'i'}},
+            {description : { $regex : q , $options : 'i'}},
+            {tags : {$in : [ new RegExp(q,'i')]}},
+            {ownerName : {$regex : q , $options :'i'}},
+            {ownerUsername : {$regex : q , $options : 'i'}}
+        ]
+    }
+    if(category){
+        query.category = category
+    }
+    if(tags){
+        query.tags = {$in : tags.split(',')}
+    }
+    const videos = await Video.find(query)
+        .sort({createdAt : -1})
+        .limit(limit*1)
+        .skip((page-1)*limit)
+
+    const total = await Video.countDocuments(query)
+
+    return res.status(200).json(
+        new ApiResponse(200,
+            {
+                videos,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    pages : Math.ceil(total/limit)
+                }
+            },
+            "Videos found Successfully"
+        )
     )
 })
+
 
 export {
     uploadVideo,
@@ -180,5 +225,6 @@ export {
     getVideoById,
     updateVideo,
     deleteVideo,
-    getUserVideos
+    getUserVideos,
+    searchVideos
 };
