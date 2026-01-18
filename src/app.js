@@ -20,7 +20,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 import  userRouter from "./routes/user.routes.js"
 import  videoRouter  from './routes/video.routes.js';
 import subscriptionRouter from './routes/subscription.routes.js';
+import playlistRouter from './routes/playlists.routes.js'
 app.use('/api/v1/users',userRouter)
 app.use('/api/v1/video',videoRouter)
 app.use('/api/v1/subscriptions',subscriptionRouter)
+app.use('/api/v1/playlists', playlistRouter)
 export {app} 

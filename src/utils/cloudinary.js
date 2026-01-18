@@ -1,5 +1,5 @@
 import {v2 as cloudinary} from "cloudinary"
-import { log } from "console"
+import { error, log } from "console"
 import fs from "fs"
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -14,12 +14,14 @@ const uploadOnCloudinary = async (localFilePath) =>{
             return null
         }
         const response = await cloudinary.uploader.upload(localFilePath,{
-            resource_type:"image"
+            resource_type:"auto"
         })
         await fs.promises.unlink(localFilePath)
         return response
     }catch(e){
-        console.log("idhar eeror hai")
+        // console.log("idhar eeror hai")
+        console.log("Error while uploading ... response from the cloudinary : "+ e.message)
+        console.log("loggin error  "+ e.error)
         try {
       await fs.promises.unlink(localFilePath);
     } catch (unlinkErr) {

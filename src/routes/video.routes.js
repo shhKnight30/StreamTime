@@ -144,6 +144,74 @@ router.post("/upload",
  */
 router.route('/').get(getAllVideos);
 
+
+/**
+ * @swagger
+ * /api/v1/video/search:
+ *   get:
+ *     summary: Search videos
+ *     description: Search videos by text, category, or tags with pagination
+ *     tags: [Video]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search query (searches title, description, tags, owner)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Filter by tags (comma-separated)
+ *     responses:
+ *       200:
+ *         description: Videos found successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     videos:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Video'
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         total:
+ *                           type: integer
+ *                         pages:
+ *                           type: integer
+ *                 message:
+ *                   type: string
+ */
+router.route('/search').get(searchVideos)
 /**
  * @swagger
  * /api/v1/video/user/videos:
@@ -307,74 +375,6 @@ router.route("/:videoId").patch(verifyJWT,updateVideo);
  *         description: Unauthorized (not owner)
  *       404:
  *         description: Video not found
- */
+*/
 router.route("/:videoId").delete(verifyJWT,deleteVideo);
-
-/**
- * @swagger
- * /api/v1/video/search:
- *   get:
- *     summary: Search videos
- *     description: Search videos by text, category, or tags with pagination
- *     tags: [Video]
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *         description: Search query (searches title, description, tags, owner)
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Items per page
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *         description: Filter by category
- *       - in: query
- *         name: tags
- *         schema:
- *           type: string
- *         description: Filter by tags (comma-separated)
- *     responses:
- *       200:
- *         description: Videos found successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     videos:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Video'
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: integer
- *                         limit:
- *                           type: integer
- *                         total:
- *                           type: integer
- *                         pages:
- *                           type: integer
- *                 message:
- *                   type: string
- */
-router.route('/search').get(searchVideos)
 export default router
