@@ -32,13 +32,19 @@ const uploadVideo = asyncHandler(async(req,res)=>{
     const VideoCategory = category||'Entertainment'
     
     const videoFile = req.files?.videoFile[0]?.path
-    const uploadedVideo = await uploadOnCloudinary(videoFile, {
-        resource_type: "video"
-    });
-    
+    const fileSize = req.files?.videoFile[0]?.size;
+    console.log("Video file path:", videoFile);
+    console.log("Video file size:", (fileSize / 1024 / 1024).toFixed(2), "MB");
+    // Add validation
+    if (fileSize > 10 * 1024 * 1024) {
+        throw new ApiError(413, "Video file too large. Maximum size is 10MB. Your file is " + (fileSize / 1024 / 1024).toFixed(2) + "MB");
+    }
+    const uploadedVideo = await uploadOnCloudinary(videoFile);
     if (!uploadedVideo || !uploadedVideo.secure_url) {
+        console.log("Cloudinary response:", uploadedVideo)
         throw new ApiError(500, "Failed to upload video");
     }
+    console.log("Cloudinary response:", uploadedVideo.secure_url)
     let thumbnailUrl;
     const thumbnailFile = req.files?.thumbnail?.[0]?.path;
 

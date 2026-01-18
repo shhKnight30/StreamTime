@@ -1,8 +1,8 @@
-import { addVideoToPlaylist, createPlaylist, deletePlaylist, getAllPlaylists, getPlaylistById, getUserPlaylists, removeVideoFromPlaylist, updatePlaylist } from "../controllers/playlist.controller";
-import { verifyJWT } from "../middlewares/auth.middleware";
+import { addVideoToPlaylist, createPlaylist, deletePlaylist, getAllPlaylists, getPlaylistById, getUserPlaylists, removeVideoFromPlaylist, updatePlaylist } from "../controllers/playlist.controller.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { Router } from "express";
 
-router = Router()
+const router = Router()
 
 router.route('/create').post(verifyJWT, createPlaylist)
 router.route('/all').get(getAllPlaylists)

@@ -6,20 +6,20 @@ const likeSchema = new Schema({
         ref:'User',
         required:true
     },
-    comment:{
-        type:Schema.Types.ObjectId,
-        ref:"comment"
+        contentType: { 
+        type: String, 
+        enum: ['comment', 'video', 'tweet', 'playlist'], 
+        required: true 
     },
-    video:{
-        type:Schema.Types.ObjectId,
-        ref:"video"
+    contentId: { 
+        type: Schema.Types.ObjectId,
+        required: true, refPath: 'contentType'
     },
-    tweet:{
-        type:Schema.Types.ObjectId,
-        ref:"tweet" 
+    reaction:{
+        type: String,
+        enum: ['like'],  
+        default: 'like'
     }
 },{timestamps:true})
+export const Like = mongoose.model("Like",likeSchema);
 
-const Like = mongoose.model("Like",likeSchema);
-
-export default Like;
