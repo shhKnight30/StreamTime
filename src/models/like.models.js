@@ -6,12 +6,12 @@ const likeSchema = new Schema({
         ref:'User',
         required:true
     },
-        contentType: { 
+    contentType: { 
         type: String, 
         enum: ['comment', 'video', 'tweet', 'playlist'], 
         required: true 
     },
-    contentId: { 
+    contentId:{ 
         type: Schema.Types.ObjectId,
         required: true, refPath: 'contentType'
     },
