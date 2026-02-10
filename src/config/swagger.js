@@ -1,5 +1,4 @@
 import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
 
 const options = {
   definition: {
@@ -87,47 +86,3 @@ export const swaggerUiOptions = {
   `,
 };
 
-/**
- * Odd String
-You are given a string 
-S
-S of length 
-N
-N consisting only of lowercase English letters.
-
-A string is called an odd string if and only if:
-
-For every pair of indices 
-i
-<
-j
-i<j such that 
-S
-i
-=
-S
-j
-S 
-i
-​
- =S 
-j
-​
- , the distance between them is odd, i.e. 
-(
-j
-−
-i
-)
-(j−i) is odd.
-
-In other words, no two equal characters are allowed to appear at an even distance from each other.
-
-You are allowed to rearrange the characters of the string 
-S
-S in any order.
-
-Determine whether it is possible to rearrange 
-S
-S such that it becomes an odd string.
- */

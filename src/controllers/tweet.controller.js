@@ -1,10 +1,10 @@
 import { Tweet } from "../models/tweet.model.js";
-import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Subscription } from "../models/subscriptions.models.js"; 
+
 const createTweet = asyncHandler(async (req , res )=>{
     const {content , visibility = 'public' } = req.body
 
@@ -117,5 +117,5 @@ export {
     deleteTweet,
     getTweets,
     getTweetById,
-    getUserTimeline
+    getUserTimeline,
 }
