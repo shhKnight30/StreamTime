@@ -15,7 +15,7 @@ const commentSchema = new Schema({
     },
     parentContentType: { 
         type: String, 
-        enum: ['comment', 'video', 'tweet', 'playlist'], 
+        enum: ['comment', 'video', 'tweet', 'playlist','livestream'], 
         required: true 
     },
     parentContentId: { 

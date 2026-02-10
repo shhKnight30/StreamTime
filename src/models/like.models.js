@@ -8,7 +8,7 @@ const likeSchema = new Schema({
     },
     contentType: { 
         type: String, 
-        enum: ['comment', 'video', 'tweet', 'playlist'], 
+        enum: ['comment', 'video', 'tweet', 'playlist','livestream'], 
         required: true 
     },
     contentId:{ 
