@@ -130,7 +130,7 @@ logger.logRequest = (req, res, responseTime) => {
         responseTime: `${responseTime}ms`,
         userAgent: req.get('User-Agent'),
         ip: req.ip || req.connection.remoteAddress,
-        userId: req.user?.id || 'anonymous'
+        userId: req.user?._id?.toString() || 'anonymous'
     };
     
     if (res.statusCode >= 400) {

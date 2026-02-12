@@ -1,18 +1,10 @@
-// const asyncHandler = (requestHandler)=>{
-//     (req,res,next)=>{
-
-//         Promise.resolve(requestHandler(req,res,next)).catch((err)=>{
-//             next(err)
-//             console.log(error)
-//         })
-//     }
-// }
+import logger from '../config/logger.js';
 
 const asyncHandler = (requestHandler)=>{
     return (req,res,next)=>{
         Promise.resolve(requestHandler(req,res,next)).catch((err)=>{
             next(err)
-            // console.log(error)
+            logger.error(err)
         })
     }
 }

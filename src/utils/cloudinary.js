@@ -1,6 +1,7 @@
-import {v2 as cloudinary} from "cloudinary"
-import { error, log } from "console"
-import fs from "fs"
+import { v2 as cloudinary } from 'cloudinary';
+import fs from 'fs/promises';
+import logger from '../config/logger.js';
+
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -10,23 +11,24 @@ cloudinary.config({
 const uploadOnCloudinary = async (localFilePath) =>{
     try{
         if(!localFilePath){
-            console.log("no file path")
+            logger.error('No file path provided');
             return null
         }
         const response = await cloudinary.uploader.upload(localFilePath,{
             resource_type:"auto"
         })
-        await fs.promises.unlink(localFilePath)
+        await fs.unlink(localFilePath)
         return response
     }catch(e){
-        // console.log("idhar eeror hai")
-        console.log("Error while uploading ... response from the cloudinary : "+ e.message)
-        console.log("loggin error  "+ e.error)
-        try {
-      await fs.promises.unlink(localFilePath);
-    } catch (unlinkErr) {
-      console.error("Error deleting file:", unlinkErr);
-    }
+        logger.error('Cloudinary upload error:', e.message);
+        logger.error('Cloudinary error details:', e.error);
+        if (localFilePath) {
+            try {
+                await fs.unlink(localFilePath);
+            } catch (unlinkErr) {
+                logger.error('Error deleting file:', unlinkErr);
+            }
+        }
 
         return null
     }

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv'
+import logger from '../config/logger.js';
 
 class DatabaseManager {
     constructor() {
@@ -12,7 +13,7 @@ class DatabaseManager {
 
     async connectWithRetry() {
         try {
-            console.log('Attempting to connect to MongoDB...');
+            logger.info('Attempting to connect to MongoDB...');
             
             // Set connection options
             const options = {
@@ -25,7 +26,7 @@ class DatabaseManager {
                 retryWrites: true,
                 retryReads: true,
                 bufferCommands: false,
-                bufferMaxEntries: 0
+                // bufferMaxEntries: 0
             };
 
             await mongoose.connect(`${process.env.MONGODB_URI}/${process.env.DB_NAME}`, options);
@@ -33,7 +34,7 @@ class DatabaseManager {
             this.isConnected = true;
             this.retryCount = 0;
             
-            console.log(`${mongoose.connection.host} connected successfully`);
+            logger.info(`${mongoose.connection.host} connected successfully`);
             
             // Set up connection event handlers
             this.setupEventHandlers();
@@ -43,16 +44,16 @@ class DatabaseManager {
             this.isConnected = false;
             this.retryCount++;
             
-            console.error(`MongoDB connection failed (attempt ${this.retryCount}/${this.maxRetries}):`, error);
+            logger.error(`MongoDB connection failed (attempt ${this.retryCount}/${this.maxRetries}):`, error);
             
             if (this.retryCount >= this.maxRetries) {
-                console.error('Max retry attempts reached. Database connection failed.');
+                logger.error('Max retry attempts reached. Database connection failed.');
                 throw new Error('Database connection failed after maximum retries');
             }
             
             // Exponential backoff
             const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
-            console.log(`Retrying in ${delay}ms...`);
+            logger.info(`Retrying in ${delay}ms...`);
             
             await this.sleep(delay);
             return this.connectWithRetry();
@@ -63,36 +64,36 @@ class DatabaseManager {
         const db = mongoose.connection;
 
         db.on('error', (error) => {
-            console.error('MongoDB connection error:', error);
+            logger.error('MongoDB connection error:', error);
             this.isConnected = false;
             this.handleConnectionLoss();
         });
 
         db.on('disconnected', () => {
-            console.warn('MongoDB disconnected');
+            logger.warn('MongoDB disconnected');
             this.isConnected = false;
             this.handleConnectionLoss();
         });
 
         db.on('reconnected', () => {
-            console.log('MongoDB reconnected');
+            logger.info('MongoDB reconnected');
             this.isConnected = true;
             this.retryCount = 0;
         });
 
         db.on('close', () => {
-            console.log('MongoDB connection closed');
+            logger.info('MongoDB connection closed');
             this.isConnected = false;
         });
     }
 
     async handleConnectionLoss() {
         if (this.retryCount < this.maxRetries) {
-            console.log('Attempting to reconnect to MongoDB...');
+            logger.info('Attempting to reconnect to MongoDB...');
             try {
                 await this.connectWithRetry();
             } catch (error) {
-                console.error('Reconnection failed:', error);
+                logger.error('Reconnection failed:', error);
             }
         }
     }
@@ -112,7 +113,7 @@ class DatabaseManager {
                 retryCount: this.retryCount
             };
         } catch (error) {
-            console.error('Database health check failed:', error);
+            logger.error('Database health check failed:', error);
             return { 
                 status: 'unhealthy', 
                 message: error.message,
@@ -139,9 +140,9 @@ const dbManager = new DatabaseManager();
 const connectDB = async ()=>{
     try {
         await dbManager.connectWithRetry();
-        console.log("Database connection established successfully");
+        logger.info("Database connection established successfully");
     } catch (error) {
-        console.error("Database connection failed:", error);
+        logger.error("Database connection failed:", error);
         throw error;
     }
 }
