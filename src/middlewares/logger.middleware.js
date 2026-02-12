@@ -18,7 +18,7 @@ const requestLogger = (req, res, next) => {
         url: req.url,
         userAgent: req.get('User-Agent'),
         ip: req.ip || req.connection.remoteAddress,
-        userId: req.user?.id || 'anonymous',
+        userId: req.user?._id?.toString() || 'anonymous',
         timestamp: new Date().toISOString()
     });
 
@@ -46,7 +46,7 @@ const errorLogger = (err, req, res, next) => {
         url: req.url,
         userAgent: req.get('User-Agent'),
         ip: req.ip || req.connection.remoteAddress,
-        userId: req.user?.id || 'anonymous',
+        userId: req.user?._id?.toString() || 'anonymous',
         timestamp: new Date().toISOString(),
         error: {
             message: err.message,
@@ -88,7 +88,7 @@ const performanceLogger = (req, res, next) => {
                 url: req.url,
                 responseTime: `${responseTime.toFixed(2)}ms`,
                 statusCode: res.statusCode,
-                userId: req.user?.id || 'anonymous'
+                userId: req.user?._id?.toString() || 'anonymous'
             });
         }
 
@@ -120,7 +120,7 @@ const databaseLogger = (operation) => {
             // Log database operation
             logger.logDatabase(operation, req.params.collection || 'unknown', {
                 requestId: req.requestId,
-                userId: req.user?.id || 'anonymous',
+                userId: req.user?._id?.toString() || 'anonymous',
                 operation: req.method,
                 endpoint: req.url,
                 success: res.statusCode < 400
@@ -176,7 +176,7 @@ const rateLimitLogger = (req, res, next) => {
                 userAgent: req.get('User-Agent'),
                 endpoint: req.url,
                 method: req.method,
-                userId: req.user?.id || 'anonymous',
+                userId: req.user?._id?.toString() || 'anonymous',
                 timestamp: new Date().toISOString()
             });
         }

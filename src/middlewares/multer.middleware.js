@@ -1,10 +1,11 @@
 import multer, { diskStorage } from "multer";
 import fs from 'fs'
 import path from 'path'
+import logger from '../config/logger.js';
 
 const uploadDir = './public/temp'
 if(!fs.existsSync(uploadDir)){
-    console.log("Creating upload directory : ", uploadDir)
+    logger.info('Creating upload directory:', uploadDir);
     fs.mkdirSync(uploadDir,{recursive :true})
 }
 const storage = diskStorage({
@@ -23,7 +24,7 @@ export const upload = multer({
         files :2
     },
     fileFilter :(req,file,cb)=>{
-        console.log("Received file : ", file.originalname , "Size:", file.size)
+        logger.debug('Received file:', file.originalname, 'Size:', file.size);
         cb(null,true)
     }
 })
