@@ -2,26 +2,11 @@ import { Video } from "../models/video.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import {v2 as cloudinary} from "cloudinary"
+import logger from '../config/logger.js';
+import { uploadOnS3, deleteFromS3ByKey } from "../utils/aws-s3.js";
+import { generateThumbnail, getVideoDuration } from "../utils/thumbnailGenerator.js";
+import fs from 'fs/promises';
 
-const generateThumbnailFromVideo  = async(videoUrl) =>{
-    try{
-        const publicId = videoUrl.split('/').pop().split('.')[0]
-        const thumbnailUrl = await cloudinary.url(publicId,{
-            resource_type: "video",
-            format: "jpg",
-            start_offset : 0,
-            transformation:[
-                { width:1280, height:720, crop:"fill"},
-                { quality : "auto" }
-            ]
-        })
-        return thumbnailUrl
-    }catch(err){
-        throw new ApiError(500,"Failed to generate thumbnail")
-    }
-}
 const uploadVideo = asyncHandler(async(req,res)=>{
     const {title,description,visibility,tags,category} = req.body
     if (!title?.trim()) {
@@ -33,42 +18,56 @@ const uploadVideo = asyncHandler(async(req,res)=>{
     
     const videoFile = req.files?.videoFile[0]?.path
     const fileSize = req.files?.videoFile[0]?.size;
-    console.log("Video file path:", videoFile);
-    console.log("Video file size:", (fileSize / 1024 / 1024).toFixed(2), "MB");
+    logger.debug('Video file path:', videoFile);
+    logger.debug('Video file size:', (fileSize / 1024 / 1024).toFixed(2), "MB");
     // Add validation
-    if (fileSize > 10 * 1024 * 1024) {
-        throw new ApiError(413, "Video file too large. Maximum size is 10MB. Your file is " + (fileSize / 1024 / 1024).toFixed(2) + "MB");
+    if (fileSize > 100 * 1024 * 1024) {
+        throw new ApiError(413, "Video file too large. Maximum size is 100MB. Your file is " + (fileSize / 1024 / 1024).toFixed(2) + "MB");
     }
-    const uploadedVideo = await uploadOnCloudinary(videoFile);
-    if (!uploadedVideo || !uploadedVideo.secure_url) {
-        console.log("Cloudinary response:", uploadedVideo)
+    const uploadedVideoResult = await uploadOnS3(videoFile, 'videos');
+    if (!uploadedVideoResult || !uploadedVideoResult.url) {
+        logger.error('S3 response:', uploadedVideoResult);
         throw new ApiError(500, "Failed to upload video");
     }
-    console.log("Cloudinary response:", uploadedVideo.secure_url)
+    logger.debug('S3 response:', uploadedVideoResult.url)
     let thumbnailUrl;
     const thumbnailFile = req.files?.thumbnail?.[0]?.path;
 
     if (thumbnailFile) {
         // User provided thumbnail
-        console.log("Using user-provided thumbnail");
-        const uploadedThumbnail = await uploadOnCloudinary(thumbnailFile);
-        thumbnailUrl = uploadedThumbnail.secure_url;
+        logger.debug('Using user-provided thumbnail');
+        const uploadedThumbnailResult = await uploadOnS3(thumbnailFile, 'thumbnails');
+        thumbnailUrl = uploadedThumbnailResult.url;
     } else {
-        // Generate thumbnail from uploaded video
-        console.log("Generating thumbnail from video");
-        thumbnailUrl = await generateThumbnailFromVideo(uploadedVideo.secure_url);
+        // Generate thumbnail from video
+        logger.debug('Generating thumbnail from video');
+        try {
+            const thumbnailPath = await generateThumbnail(videoFile);
+            const uploadedThumbnailResult = await uploadOnS3(thumbnailPath, 'thumbnails');
+            thumbnailUrl = uploadedThumbnailResult.url;
+            
+            // Clean up generated thumbnail
+            await fs.unlink(thumbnailPath);
+        } catch (error) {
+            logger.error('Failed to generate thumbnail:', error);
+            thumbnailUrl = ""; // Use empty thumbnail as fallback
+        }
     }
 
-    if(!thumbnailUrl){
-        throw new ApiError(500,"Failed to process thumbnail")
+    // Get video duration
+    let duration = 0;
+    try {
+        duration = Math.round(await getVideoDuration(videoFile));
+    } catch (error) {
+        logger.error('Failed to get video duration:', error);
     }
 
     const video = await Video.create({
-        videoURL : uploadedVideo.secure_url,
+        videoURL : uploadedVideoResult.url,
         title,
         thumbnail:thumbnailUrl,
         description : VideoDescription,
-        duration : uploadedVideo.duration || 0,
+        duration : duration,
         visibility: videoVisibility,
         tags:tags?.split(',').map(tag=> tag.trim()).filter(tag=>tag),
         category: VideoCategory,
@@ -81,7 +80,6 @@ const uploadVideo = asyncHandler(async(req,res)=>{
         new ApiResponse(201,video,"Video uploaded successfully")
     )
 })
-
 
 const getAllVideos = asyncHandler(async (req,res)=>{
     const {page = 1,limit = 10, category ,tags} = req.query
@@ -155,7 +153,17 @@ const deleteVideo = asyncHandler(async (req, res)=>{
     const video = await Video.findById(videoId)
     if(!video)throw new ApiError(404, "Video not found")
     if(video.owner.toString()!== req.user._id.toString())throw new ApiError(403, "Unauthorized Request")
-    // await Video(findByIdAndDelete(videoId))
+    
+    // Extract keys from URLs and delete from S3
+    if(video.videoURL){
+        const videoKey = video.videoURL.split('/').pop();
+        await deleteFromS3ByKey(videoKey);
+    }
+    if(video.thumbnail){
+        const thumbnailKey = video.thumbnail.split('/').pop();
+        await deleteFromS3ByKey(thumbnailKey);
+    }
+    
     await Video.findByIdAndDelete(videoId)
 
     return res.status(200).json(

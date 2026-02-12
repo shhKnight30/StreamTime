@@ -1,6 +1,7 @@
 import {Schema,model} from 'mongoose'
 import jwt from 'jsonwebtoken'
-import bcrypt from 'bcrypt'
+import logger from '../config/logger.js';
+import bcrypt from 'bcrypt';    
 const userSchema = Schema({
     username:{
         type:String,
@@ -25,7 +26,7 @@ const userSchema = Schema({
     },
     avatar:{
         type:String,
-        required:true, // cloudinary url  
+        required:true, // S3 url  
     },
     coverImage:{
         type:String,
@@ -69,7 +70,7 @@ userSchema.pre('save',async function(next){
     next()
 })
 userSchema.methods.isPasswordCorrect = async function (password){
-    // console.log(password)
+    logger.debug('Password comparison for user verification');
     return await bcrypt.compare(password,this.password)
 }
 userSchema.methods.generateAccessToken = function(){

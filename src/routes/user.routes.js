@@ -8,6 +8,7 @@ import { upload } from "../middlewares/multer.middleware.js";
  *   post:
  *     summary: Register a new user
  *     tags: [Users]
+ *     description: Create a new user account with avatar and optional cover image
  *     requestBody:
  *       required: true
  *       content:
@@ -23,20 +24,73 @@ import { upload } from "../middlewares/multer.middleware.js";
  *             properties:
  *               fullname:
  *                 type: string
+ *                 description: User's full name
+ *                 example: "John Doe"
+ *                 minLength: 3
+ *                 maxLength: 50
  *               username:
  *                 type: string
+ *                 description: Unique username - alphanumeric, underscore, hyphen
+ *                 example: "johndoe123"
+ *                 minLength: 3
+ *                 maxLength: 30
+ *                 pattern: "^[a-zA-Z0-9_-]+$"
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Valid email address
+ *                 example: "user@example.com"
  *               password:
  *                 type: string
+ *                 format: password
+ *                 description: Strong password - min 6 characters
+ *                 example: "Password123!"
+ *                 minLength: 6
  *               avatar:
  *                 type: string
  *                 format: binary
+ *                 description: Profile avatar image - JPEG, PNG, WebP max 5MB
+ *               coverImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional cover image - JPEG, PNG, WebP max 5MB
  *     responses:
  *       201:
  *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
  *       400:
- *         description: Bad request
+ *         description: Bad request - validation errors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       409:
+ *         description: Conflict - user already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       413:
+ *         description: Payload too large - file size exceeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
  */
 /**
  * @swagger
@@ -44,6 +98,7 @@ import { upload } from "../middlewares/multer.middleware.js";
  *   post:
  *     summary: Login user
  *     tags: [Users]
+ *     description: Authenticate user with email and password
  *     requestBody:
  *       required: true
  *       content:
@@ -57,11 +112,13 @@ import { upload } from "../middlewares/multer.middleware.js";
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Registered email address
  *                 example: "user@example.com"
  *               password:
  *                 type: string
  *                 format: password
- *                 example: "password123"
+ *                 description: User password
+ *                 example: "Password123!"
  *     responses:
  *       200:
  *         description: Login successful
@@ -72,19 +129,41 @@ import { upload } from "../middlewares/multer.middleware.js";
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User logged in successfully"
  *                 data:
  *                   type: object
  *                   properties:
  *                     user:
- *                       $ref: '#/schemas/User'
+ *                       $ref: '#/components/schemas/User'
  *                     accessToken:
  *                       type: string
+ *                       description: JWT access token - 15 minutes
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                     refreshToken:
  *                       type: string
+ *                       description: JWT refresh token - 7 days
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       400:
+ *         description: Bad request - missing credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
  *       401:
- *         description: Invalid credentials
+ *         description: Unauthorized - invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
  *       404:
  *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
  */
 /**
  * @swagger
@@ -251,6 +330,29 @@ import { upload } from "../middlewares/multer.middleware.js";
  *     responses:
  *       200:
  *         description: Logout successful
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/v1/users/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Users]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: Refresh token - if not provided via cookie
+ *     responses:
+ *       200:
+ *         description: Token refreshed
  *       401:
  *         description: Unauthorized
  */

@@ -2,9 +2,9 @@ import { User } from "../models/user.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from '../utils/ApiResponse.js'
-import {uploadOnCloudinary} from '../utils/cloudinary.js'
+import { uploadOnS3 } from '../utils/aws-s3.js'
 import jwt from "jsonwebtoken"
-
+import logger from '../config/logger.js';
 
   
 const generateAccessAndRefreshTokens = async(userId)=>{
@@ -25,7 +25,7 @@ const registerUser = asyncHandler(async(req,res) =>{
     // validation - not empty
     // check if user already exists: username, email
     // check for images, check for avatar
-    // upload them to cloudinary, avatar
+    // upload them to S3, avatar
     // create user object - create entry in db
     // remove password and refresh token field from response
     // check for user creation
@@ -52,26 +52,23 @@ const registerUser = asyncHandler(async(req,res) =>{
     if(req.files && Array.isArray(req.files.coverImage) &&req.files.coverImage.length>0){
         coverImageLocalPath=req.files.coverImage[0].path
     }
-    console.log(avatarLocalPath)
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
-    // console.log("India")
-    console.log(avatar)
-    if(!avatar){
-        console.log("not uploading on cloudinry")
+    logger.debug('Avatar local path:', avatarLocalPath);
+    const avatarResult = await uploadOnS3(avatarLocalPath, 'avatars')
+    const coverImageResult = await uploadOnS3(coverImageLocalPath, 'covers')
+    logger.debug('Avatar uploaded:', avatarResult);
+    if(!avatarResult){
+        logger.error('Avatar file is required');
         throw new ApiError(400,"avatar file is required")
     }
-    // console.log(username)
     const user = await User.create({
         username,
         fullname,
         password,
-        avatar : avatar.url,
-        coverImage : coverImage?.url || "" ,
+        avatar : avatarResult.url,
+        coverImage : coverImageResult?.url || "" ,
         username,
         email,
     })
-    // console.log(user)
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
     )
@@ -79,10 +76,10 @@ const registerUser = asyncHandler(async(req,res) =>{
         throw new ApiError(500,"something went wrong while registering the user")
     } 
     const {accessToken , refreshToken} = await generateAccessAndRefreshTokens(user._id)
-    console.log("Request keys:", Object.keys(req));
-    console.log("req.body:", req.body);
-    console.log("req.file:", req.file);
-    console.log("req.files:", req.files); 
+    logger.debug('Request keys:', Object.keys(req));
+    logger.debug('Request body:', req.body);
+    logger.debug('Request file:', req.file);
+    logger.debug('Request files:', req.files); 
     return res.status(201).json(
         new ApiResponse(200,{user: createdUser,accessToken,refreshToken},"user registered successfully")
     )
@@ -95,13 +92,11 @@ const loginUser = asyncHandler(async(req,res)=>{
     // check crrect password\
     // if correct generate access token or refresh token 
     // send them in secure cookie
-    // console.log(req.body)
     const body = async ()=>{
         return req.body
     }
 
     const {email , password} = await body()
-    // console.log(email)
     if(!email){
         throw new ApiError(400,"missingemail");
     }
@@ -110,11 +105,7 @@ const loginUser = asyncHandler(async(req,res)=>{
     if(!user){
         throw new ApiError(404,"user does not exist")
     }
-    // console.log(password)
-    // console.log(user.password)
-    // console.log(password === user.password)
     const isPasswordValid = await user.isPasswordCorrect(password)
-    // console.log(isPasswordValid)
     if(!isPasswordValid){
         throw new ApiError(401,"invalid user credentials")
     }
@@ -132,7 +123,6 @@ const loginUser = asyncHandler(async(req,res)=>{
     .json(new ApiResponse(
         200,
         {
-            
             user:loggedInUser,accessToken , refreshToken
         },
         "user logged in successfully"
@@ -271,15 +261,15 @@ const updateUserAvatar = asyncHandler(async(req,res)=>{
     if(!avatarLocalPath){
         throw new ApiError(400,"avatar file is missing")
     }
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    const avatarResult = await uploadOnS3(avatarLocalPath, 'avatars')
 
-    if(!avatar.url){
+    if(!avatarResult){
         throw new ApiError(400,"Error while uploading avatar file")
     }
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
-            $set:{avatar:avatar.url}
+            $set:{avatar:avatarResult.url}
         },
         {
             new:true
@@ -296,14 +286,14 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
     if(!coverImageLocalPath){
         throw new ApiError(400,"cover image not found")
     }
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
-    if(!coverImage){
+    const coverImageResult = await uploadOnS3(coverImageLocalPath, 'covers')
+    if(!coverImageResult){
         throw new ApiError(400,"error while uploading cover image file")
     }
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
-            $set:{coverImage:coverImage.url}
+            $set:{coverImage:coverImageResult.url}
         },
         {
             new :true
