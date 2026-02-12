@@ -4,7 +4,7 @@ import cors from "cors"
 import { specs, swaggerUiOptions } from './config/swagger.js';
 import swaggerUi from 'swagger-ui-express';
 import rateLimit from 'express-rate-limit';
-
+import { requestLogger,errorLogger,performanceLogger } from './middlewares/logger.middleware.js';
 const app = express()
 
 // Rate limiting for production-grade resilience
@@ -15,7 +15,8 @@ const limiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-
+app.use(requestLogger)
+app.use(performanceLogger)
 app.use(cors({
     origin:process.env.CORS_ORIGIN,
     credentials : true
@@ -61,7 +62,8 @@ app.use('/api/v1/playlists', playlistRouter)
 app.use('/api/v1/likes' , likeRouter)
 app.use('/api/v1/comment', commentRouter)
 app.use('/api/v1/tweet', tweetRouter)
-app.use('/api/v1/livestream',liveStreamRouter)
+app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
 
+app.use(errorLogger)
 export {app} 
