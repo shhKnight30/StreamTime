@@ -1,10 +1,9 @@
 import cookieParser from 'cookie-parser'
 import express from 'express'
 import cors from "cors"
-import { specs, swaggerUiOptions } from './config/swagger.js';
-import swaggerUi from 'swagger-ui-express';
 import rateLimit from 'express-rate-limit';
 import { requestLogger,errorLogger,performanceLogger } from './middlewares/logger.middleware.js';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 const app = express()
 
 // Rate limiting for production-grade resilience
@@ -66,4 +65,6 @@ app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
 
 app.use(errorLogger)
+app.use(notFoundHandler)
+app.use(errorHandler)
 export {app} 

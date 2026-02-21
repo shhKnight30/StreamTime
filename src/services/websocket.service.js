@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import logger from '../config/logger.js';
+import mediasoupService from './mediasoup.service.js';
 
 class WebSocketService {
     constructor() {
@@ -218,6 +219,134 @@ class WebSocketService {
                     })
                 }
             })
+
+            // ===== MEDIASOUP SFU EVENTS =====
+
+            // Create WebRTC transport for client
+            socket.on('create-transport', async (data) => {
+                try {
+                    const { streamId, direction } = data;
+                    const transportData = await mediasoupService.createTransport(streamId, socket.id, direction);
+
+                    socket.emit('transport-created', {
+                        transport: transportData,
+                        streamId
+                    });
+
+                    logger.logWebSocket('Transport Created', {
+                        streamId,
+                        transportId: transportData.id,
+                        direction,
+                        socketId: socket.id
+                    });
+                } catch (error) {
+                    logger.error('Failed to create transport', { error: error.message, socketId: socket.id });
+                    socket.emit('transport-error', {
+                        error: error.message,
+                        streamId: data.streamId
+                    });
+                }
+            });
+
+            // Client wants to produce (send) media
+            socket.on('produce', async (data) => {
+                try {
+                    const { transportId, kind, rtpParameters } = data;
+                    const producerData = await mediasoupService.createProducer(transportId, kind, rtpParameters);
+
+                    socket.emit('producer-created', {
+                        producer: producerData,
+                        transportId
+                    });
+
+                    logger.logWebSocket('Producer Created', {
+                        producerId: producerData.id,
+                        kind,
+                        transportId,
+                        socketId: socket.id
+                    });
+                } catch (error) {
+                    logger.error('Failed to create producer', { error: error.message, socketId: socket.id });
+                    socket.emit('producer-error', {
+                        error: error.message,
+                        transportId: data.transportId
+                    });
+                }
+            });
+
+            // Client wants to consume (receive) media
+            socket.on('consume', async (data) => {
+                try {
+                    const { transportId, producerId, rtpCapabilities } = data;
+                    const consumerData = await mediasoupService.createConsumer(transportId, producerId, rtpCapabilities);
+
+                    socket.emit('consumer-created', {
+                        consumer: consumerData,
+                        transportId,
+                        producerId
+                    });
+
+                    logger.logWebSocket('Consumer Created', {
+                        consumerId: consumerData.id,
+                        producerId,
+                        transportId,
+                        socketId: socket.id
+                    });
+                } catch (error) {
+                    logger.error('Failed to create consumer', { error: error.message, socketId: socket.id });
+                    socket.emit('consumer-error', {
+                        error: error.message,
+                        transportId: data.transportId,
+                        producerId: data.producerId
+                    });
+                }
+            });
+
+            // Get router capabilities for client
+            socket.on('get-router-capabilities', async (data) => {
+                try {
+                    const { streamId } = data;
+                    const capabilities = mediasoupService.getRouterCapabilities(streamId);
+
+                    socket.emit('router-capabilities', {
+                        capabilities,
+                        streamId
+                    });
+                } catch (error) {
+                    logger.error('Failed to get router capabilities', { error: error.message, socketId: socket.id });
+                    socket.emit('router-error', {
+                        error: error.message,
+                        streamId: data.streamId
+                    });
+                }
+            });
+
+            // Get available producers for a stream
+            socket.on('get-producers', (data) => {
+                try {
+                    const { streamId } = data;
+                    const producers = mediasoupService.getStreamProducers(streamId);
+
+                    socket.emit('producers-list', {
+                        producers,
+                        streamId
+                    });
+                } catch (error) {
+                    logger.error('Failed to get producers', { error: error.message, socketId: socket.id });
+                    socket.emit('producers-error', {
+                        error: error.message,
+                        streamId: data.streamId
+                    });
+                }
+            });
+
+            // Handle socket disconnection
+            socket.on('disconnect', () => {
+                logger.logWebSocket('User Disconnected', { socketId: socket.id });
+
+                // Clean up any mediasoup resources for this socket
+                // This will be handled by transport close events
+            });
 
             // Streamer ends stream
             socket.on('stream-ended', (data) => {

@@ -62,7 +62,7 @@ const getLiveStreams = asyncHandler(async (req,res) =>{
 
 const getLiveStreamById = asyncHandler(async (req, res)=>{
     const {streamId} = req.params
-    const streams = await LiveStream.findById(streamId)
+    const stream = await LiveStream.findById(streamId)
     .populate('streamer' ,'username fullname avatar')
     
     if(!stream){
@@ -98,7 +98,7 @@ const updateLiveStream = asyncHandler(async (req, res)=>{
 })
 
 const deleteLiveStream = asyncHandler(async (req, res) =>{
-    const streamId = req.params 
+    const streamId = req.params.streamId
     const stream = await LiveStream.findById(streamId)
     if (!stream) {
         throw new ApiError(404, "Live stream not found");

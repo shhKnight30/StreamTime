@@ -4,7 +4,8 @@ import {app} from './app.js'
 import http from 'http'
 import websocketServices from './services/websocket.service.js';
 import logger from './config/logger.js';
-
+import mongoose from 'mongoose';
+import mediasoupService from './services/mediasoup.service.js';
 dotenv.config({
     path:'./env'
     
@@ -17,7 +18,11 @@ server.listen(process.env.PORT || 3000, () => {
 })
 
 connectDB()
-.then(()=>{
+.then(async ()=>{
+    // Initialize mediasoup workers
+    await mediasoupService.initialize();
+    logger.info('Mediasoup SFU initialized successfully');
+    
     app.on('error',(error)=>{
         logger.error("Server error:", error);
         throw error
