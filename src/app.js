@@ -4,6 +4,7 @@ import cors from "cors"
 import rateLimit from 'express-rate-limit';
 import { requestLogger,errorLogger,performanceLogger } from './middlewares/logger.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
+import './config/env.js';
 const app = express()
 
 // Rate limiting for production-grade resilience
@@ -42,7 +43,7 @@ app.get('/health', (req, res) => {
     res.status(200).json(healthStatus);
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
+// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 import  userRouter from "./routes/user.routes.js"
 import  videoRouter  from './routes/video.routes.js';
@@ -55,7 +56,7 @@ import liveStreamRouter from './routes/liveStream.routes.js';
 import analyticsRouter from './routes/analytics.routes.js';
 
 app.use('/api/v1/users',userRouter)
-app.use('/api/v1/video',videoRouter)
+app.use('/api/v1/videos',videoRouter)
 app.use('/api/v1/subscriptions', subscriptionRouter)
 app.use('/api/v1/playlists', playlistRouter)
 app.use('/api/v1/likes' , likeRouter)

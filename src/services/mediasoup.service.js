@@ -17,14 +17,14 @@ class MediasoupService {
      * Creates one worker per CPU core for optimal performance
      */
     async initialize() {
-        const numWorkers = os.cpus().length;
+        const numWorkers = Number(process.env.MEDIASOUP_WORKERS || 2);
 
         for (let i = 0; i < numWorkers; i++) {
             const worker = await mediasoup.createWorker({
                 logLevel: 'warn',
                 logTags: ['info', 'ice', 'dtls', 'rtp', 'srtp', 'rtcp'],
                 rtcMinPort: 10000 + (i * 1000),  // Port ranges per worker
-                rtcMaxPort: 19999 + (i * 1000)
+                rtcMaxPort: 10999 + (i * 1000)
             });
 
             worker.on('died', () => {
@@ -33,7 +33,7 @@ class MediasoupService {
             });
 
             this.workers.push(worker);
-            logger.info(`Mediasoup worker ${i} created with ports ${10000 + (i * 1000)}-${19999 + (i * 1000)}`);
+            logger.info(`Mediasoup worker ${i} created with ports ${10000 + (i * 1000)}-${10999 + (i * 1000)}`);
         }
     }
 
