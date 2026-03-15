@@ -65,7 +65,7 @@ app.use('/api/v1/tweet', tweetRouter)
 app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
 
-app.use(errorLogger)
 app.use(notFoundHandler)
+app.use(errorLogger)
 app.use(errorHandler)
 export {app} 

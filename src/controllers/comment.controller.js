@@ -16,13 +16,13 @@ const addComment = asyncHandler(async (req , res ) =>{
             parentExists = await Video.findById(parentContentId)
             break
         case 'playlist':
-            parentExists = await Video.findById(parentContentId)
+            parentExists = await Playlist.findById(parentContentId)
             break
         case 'comment' :
-            parentExists= await Video.findById(parentContentId)
+            parentExists= await Comment.findById(parentContentId)
             break
         case 'tweet' :
-            parentExists= await Video.findById(parentContentId)
+            parentExists= await Tweet.findById(parentContentId)
             break
     }
     if(!parentExists){
@@ -66,7 +66,7 @@ const getComments = asyncHandler(async (req , res)=>{
     return res.status(200).json(
         new ApiResponse(200, {
             comments:commentsWithStats,
-            commentsWithReplyCount,
+            // commentsWithReplyCount,
             pagination :{
                 page,
                 limit,
@@ -79,7 +79,7 @@ const getComments = asyncHandler(async (req , res)=>{
 
 const updateComment = asyncHandler(async (req , res )=>{
     const {commentId, content} = req.body
-    comment = await Comment.findById(commentId)
+    const comment = await Comment.findById(commentId)
     if(!comment){
         throw new ApiError(404, "Comment not found ")
     }
@@ -118,7 +118,7 @@ const getUserComments = asyncHandler(async (req , res )=>{
     if(parentContentType){
         q.parentContentType  = parentContentType
     }
-    const comments = Comment.find(q)
+    const comments = await Comment.find(q)
         .populate('user' , 'username fullname avatar')
         .sort({createdAt : -1})
         .limit(limit*1)

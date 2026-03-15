@@ -5,7 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const createPlaylist = asyncHandler(async (req , res ) =>{
-    const {name , description , isPublic} = req.body
+    const {name , description , visibility} = req.body
     if(!name?.trim()) {
         throw new ApiError(400, "Playlist new is required")
     }
@@ -26,7 +26,7 @@ const getAllPlaylists = asyncHandler(async (req, res)=>{
     let query = {visibility : 'public'}
     if(q){
         query.$or = [
-            {name : { $regex: q , $options:1}},
+            {name : { $regex: q , $options:'i'}},
             {description : { $regex : q , $options : 'i'}},
             {'owner.username' : {$regex : q , $options : 'i'}},
             {'owner.fullname' : {$regex :q ,$options : 'i'}}   
@@ -37,7 +37,7 @@ const getAllPlaylists = asyncHandler(async (req, res)=>{
     }
     const playlists = await Playlist.find(query)
     .populate('owner', 'username fullname avatar')
-    .populate('videos', 'title thumbnail duration')
+    .populate('Videos', 'title thumbnail duration')
     .sort({createdAt :-1})
     .limit(limit *1)
     .skip((page -1)*limit)
@@ -116,7 +116,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res)=>{
     if(!playlist){
         throw new ApiError(404, "No Playlist found")
     }
-    if(playlist.owner.toString()!== req.user?._id){
+    if(playlist.owner.toString()!== req.user?._id.toString()){
         throw new ApiError(400, "Unauthorized Request")
     }
     playlist.videos = playlist.videos.filter(video => video.toString()!==videoId)

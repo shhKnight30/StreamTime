@@ -10,8 +10,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 const toggleLike = asyncHandler(async (req , res) =>{
     const {contentId , contentType} = req.body
 
-    const validTypes = ['comment','video' ,'tweet' , 'playlist']
-    if(validTypes.includes(contentType)){
+    const validTypes = ['comment','video' ,'tweet' , 'playlist','livestream']
+    if(!validTypes.includes(contentType)){
         throw new ApiError(400, "Invalid Content Type")
     }
     let contentExists
@@ -25,11 +25,11 @@ const toggleLike = asyncHandler(async (req , res) =>{
             break
         
         case 'comment':
-            contentExists = await comment.findById(contentId)
+            contentExists = await Comment.findById(contentId)
             break
         
         case 'tweet':
-            contentExists = await tweet.findById(contentId)
+            contentExists = await Tweet.findById(contentId)
             break
     }
     if(!contentExists){
@@ -37,9 +37,9 @@ const toggleLike = asyncHandler(async (req , res) =>{
     }
     
     const existingLike = await Like.findOne(
-        {user :req.user?._id},
+        {user :req.user?._id,
         contentType,
-        contentId
+        contentId}
     )
     if(existingLike){
         await Like.findByIdAndDelete(existingLike._id)

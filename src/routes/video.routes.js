@@ -174,9 +174,11 @@ router.post("/upload",
  *                         $ref: '#/components/schemas/Video'
  *                     pagination:
  *                       $ref: '#/components/schemas/Pagination'
- */
+*/
 router.get("/", getAllVideos);
 
+router.get("/user", verifyJWT, getUserVideos);
+router.get("/search", searchVideos);
 /**
  * @swagger
  * /api/v1/video/{videoId}:
@@ -299,7 +301,5 @@ router.get("/:videoId", verifyJWT, getVideoById);
  */
 router.patch("/:videoId", verifyJWT, updateVideo);
 router.delete("/:videoId", verifyJWT, deleteVideo);
-router.get("/user", verifyJWT, getUserVideos);
-router.get("/search", searchVideos);
 
 export default router;

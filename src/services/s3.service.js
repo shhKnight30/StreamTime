@@ -16,7 +16,7 @@ export const uploadToS3 = async (fileBuffer, key , contentType)=>{
         })
         const result = await s3Client.send(command);
         logger.debug('S3 upload successful:', result);
-        return `http://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`
+        return `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`
     }catch(error){
         logger.error('S3 Upload Error:', error)
         throw new Error('Failed to upload file to S3')

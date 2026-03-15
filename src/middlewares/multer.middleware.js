@@ -20,8 +20,7 @@ const storage = diskStorage({
 export const upload = multer({
     storage,
     limits:{
-        fileSize : 100*1024*1024,
-        files :2
+        fileSize : 100*1024*1024
     },
     fileFilter :(req,file,cb)=>{
         logger.debug('Received file:', file.originalname, 'Size:', file.size);

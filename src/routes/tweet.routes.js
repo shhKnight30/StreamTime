@@ -267,6 +267,160 @@ router.route('/my-tweets').get(verifyJWT,getTweets)
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
+router.route('/mentions').get(verifyJWT, getMentions)
+/**
+ * @swagger
+ * /api/v1/tweets/trending:
+ *   get:
+ *     summary: Get trending hashtags
+ *     description: Retrieve trending hashtags based on tweet volume in the last 24 hours
+ *     tags: [Tweets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of trending hashtags to return
+ *       - in: query
+ *         name: timeframe
+ *         schema:
+ *           type: string
+ *           enum: [hour, day, week]
+ *           default: day
+ *         description: Timeframe for trending calculation
+ *     responses:
+ *       200:
+ *         description: Trending hashtags retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Trending hashtags fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     trending:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           hashtag:
+ *                             type: string
+ *                             example: "webdev"
+ *                           tweetCount:
+ *                             type: integer
+ *                             example: 1250
+ *                           growth:
+ *                             type: number
+ *                             description: Percentage growth from previous period
+ *                             example: 45.5
+ *                           topTweets:
+ *                             type: array
+ *                             items:
+ *                               $ref: '#/components/schemas/Tweet'
+ *       401:
+ *         description: Unauthorized - authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.route('/trending').get(verifyJWT, getTrendingHashtags)
+
+/**
+ * @swagger
+ * /api/v1/tweets/hashtags/{hashtag}:
+ *   get:
+ *     summary: Get tweets by hashtag
+ *     description: Retrieve tweets containing a specific hashtag #hashtag
+ *     tags: [Tweets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: hashtag
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Hashtag without the # symbol
+ *         example: "webdev"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of tweets per page
+ *       - in: query
+ *         name: timeframe
+ *         schema:
+ *           type: string
+ *           enum: [hour, day, week, month, year, all]
+ *           default: all
+ *         description: Filter by timeframe
+ *     responses:
+ *       200:
+ *         description: Hashtag tweets retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Hashtag tweets fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     hashtag:
+ *                       type: string
+ *                       example: "webdev"
+ *                     tweets:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Tweet'
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *                     tweetCount:
+ *                       type: integer
+ *                       description: Total number of tweets with this hashtag
+ *       401:
+ *         description: Unauthorized - authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: No tweets found for this hashtag
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.route('/hashtags/:hashtag').get(verifyJWT, getTweetsByHashtag)
+
 router.route('/:tweetId').get(verifyJWT,getTweetById)
 
 /**
@@ -388,159 +542,5 @@ router.route('/:tweetId').delete(verifyJWT,deleteTweet)
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
-router.route('/mentions').get(verifyJWT, getMentions)
-
-/**
- * @swagger
- * /api/v1/tweets/hashtags/{hashtag}:
- *   get:
- *     summary: Get tweets by hashtag
- *     description: Retrieve tweets containing a specific hashtag #hashtag
- *     tags: [Tweets]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: hashtag
- *         required: true
- *         schema:
- *           type: string
- *         description: Hashtag without the # symbol
- *         example: "webdev"
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 20
- *         description: Number of tweets per page
- *       - in: query
- *         name: timeframe
- *         schema:
- *           type: string
- *           enum: [hour, day, week, month, year, all]
- *           default: all
- *         description: Filter by timeframe
- *     responses:
- *       200:
- *         description: Hashtag tweets retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Hashtag tweets fetched successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     hashtag:
- *                       type: string
- *                       example: "webdev"
- *                     tweets:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Tweet'
- *                     pagination:
- *                       $ref: '#/components/schemas/Pagination'
- *                     tweetCount:
- *                       type: integer
- *                       description: Total number of tweets with this hashtag
- *       401:
- *         description: Unauthorized - authentication required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- *       404:
- *         description: No tweets found for this hashtag
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- */
-router.route('/hashtags/:hashtag').get(verifyJWT, getTweetsByHashtag)
-
-/**
- * @swagger
- * /api/v1/tweets/trending:
- *   get:
- *     summary: Get trending hashtags
- *     description: Retrieve trending hashtags based on tweet volume in the last 24 hours
- *     tags: [Tweets]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 50
- *           default: 10
- *         description: Number of trending hashtags to return
- *       - in: query
- *         name: timeframe
- *         schema:
- *           type: string
- *           enum: [hour, day, week]
- *           default: day
- *         description: Timeframe for trending calculation
- *     responses:
- *       200:
- *         description: Trending hashtags retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Trending hashtags fetched successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     trending:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           hashtag:
- *                             type: string
- *                             example: "webdev"
- *                           tweetCount:
- *                             type: integer
- *                             example: 1250
- *                           growth:
- *                             type: number
- *                             description: Percentage growth from previous period
- *                             example: 45.5
- *                           topTweets:
- *                             type: array
- *                             items:
- *                               $ref: '#/components/schemas/Tweet'
- *       401:
- *         description: Unauthorized - authentication required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- */
-router.route('/trending').get(verifyJWT, getTrendingHashtags)
 
 export default router
