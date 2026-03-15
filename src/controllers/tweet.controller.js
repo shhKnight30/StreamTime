@@ -79,7 +79,7 @@ const deleteTweet = asyncHandler(async (req , res) =>{
     // Delete media files from S3
     if(tweet.media && tweet.media.length > 0){
         for(const mediaItem of tweet.media){
-            const key = mediaItem.url.split('/').pop();
+            const key = new URL(mediaItem.url).pathname.substring(1)
             await deleteFromS3ByKey(key);
         }
     }
