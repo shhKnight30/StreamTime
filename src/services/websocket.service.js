@@ -340,13 +340,7 @@ class WebSocketService {
                 }
             });
 
-            // Handle socket disconnection
-            socket.on('disconnect', () => {
-                logger.logWebSocket('User Disconnected', { socketId: socket.id });
-
-                // Clean up any mediasoup resources for this socket
-                // This will be handled by transport close events
-            });
+            
 
             // Streamer ends stream
             socket.on('stream-ended', (data) => {

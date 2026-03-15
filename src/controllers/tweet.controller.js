@@ -41,9 +41,9 @@ const getTweets = asyncHandler(async (req, res)=>{
     let query = {
         user : req.user?._id,
     }
-    if(contentType){
-        query.contentType =  contentType
-    }
+    if(visibility){
+    query.visibility = visibility
+}
     const tweets = await  Tweet.find(query)
         .populate('user' , ' username fullname avatar')
         .sort({createdAt : -1})

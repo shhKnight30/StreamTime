@@ -10,12 +10,11 @@ const createPlaylist = asyncHandler(async (req , res ) =>{
         throw new ApiError(400, "Playlist new is required")
     }
     const playlist = await Playlist.create({
-        name: name.trim(),
-        description : description?.trim() || "",
-        owner : req.user?._id,
-        isPublic : isPublic || false
-
-    })
+    name: name.trim(),
+    description: description?.trim() || "",
+    owner: req.user?._id,
+    visibility: visibility || 'public'
+})
     return res.status(201).json(
         new ApiResponse(201, playlist, "Playlist created successfully")
     )
@@ -37,7 +36,7 @@ const getAllPlaylists = asyncHandler(async (req, res)=>{
     }
     const playlists = await Playlist.find(query)
     .populate('owner', 'username fullname avatar')
-    .populate('Videos', 'title thumbnail duration')
+    .populate('videos', 'title thumbnail duration')
     .sort({createdAt :-1})
     .limit(limit *1)
     .skip((page -1)*limit)
@@ -140,7 +139,7 @@ const getPlaylistById = asyncHandler(async (req, res)=>{
     
     const playlist = await Playlist.findById(playlistId)
         .populate('owner', "username fullname avatar")
-        .populate('Videos', "title thumbnail duration views owner ownerName ownerUsername")
+        .populate('videos', "title thumbnail duration views owner ownerName ownerUsername")
 
     if(!playlist){
         throw new ApiError(404, "Playlist not found")
@@ -162,7 +161,7 @@ const updatePlaylist = asyncHandler(async (req, res)=>{
     if(!playlist){
         throw new ApiError(404, "Playlist not found")
     }
-    if(playlist.owner.toString()!== req.user?._id){
+    if(playlist.owner.toString()!== req.user?._id.toString()){
         throw new ApiError(403, "Unauthorized Request")
     }
     if(name)playlist.name = name.trim()

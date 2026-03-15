@@ -14,7 +14,7 @@ const uploadVideo = asyncHandler(async(req,res)=>{
     } 
     const VideoDescription  = description|| 'Video From StreamTime'
     const videoVisibility = visibility || 'public';
-    const VideoCategory = category||'Entertainment'
+    const VideoCategory = category||'entertainment'
     
     const videoFile = req.files?.videoFile[0]?.path
     const fileSize = req.files?.videoFile[0]?.size;

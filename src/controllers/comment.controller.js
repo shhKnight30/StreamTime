@@ -111,7 +111,7 @@ const deleteComment = asyncHandler(async (req , res )=>{
 })
 
 const getUserComments = asyncHandler(async (req , res )=>{
-    const {parentContentType,page = 1, limit =10 } = req.body
+    const {parentContentType,page = 1, limit =10 } = req.query
     let q = {
         user : req.user?._id ,
     }
