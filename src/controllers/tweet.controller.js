@@ -37,7 +37,7 @@ const createTweet = asyncHandler(async (req , res )=>{
 })
 
 const getTweets = asyncHandler(async (req, res)=>{
-    const {page = 1 , limit = 10 , contentType } = req.query
+    const {page = 1 , limit = 10 , visibility } = req.query
     let query = {
         user : req.user?._id,
     }

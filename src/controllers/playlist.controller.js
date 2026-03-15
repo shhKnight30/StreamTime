@@ -180,7 +180,7 @@ const deletePlaylist= asyncHandler(async (req, res)=>{
     if(!playlist){
         throw new ApiError(404, "PlayList not found")
     }
-    if(playlist.owner.toString() !== req.user?._id){
+    if(playlist.owner.toString() !== req.user?._id.toString()){
         throw new ApiError(403, "Unauthorized Request")
     }
     await Playlist.findByIdAndDelete(playlistId)

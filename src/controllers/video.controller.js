@@ -156,11 +156,12 @@ const deleteVideo = asyncHandler(async (req, res)=>{
     
     // Extract keys from URLs and delete from S3
     if(video.videoURL){
-        const videoKey = video.videoURL.split('/').pop();
-        await deleteFromS3ByKey(videoKey);
+        const videoKey = new URL(video.videoURL).pathname.substring(1)
+        await deleteFromS3ByKey(videoKey)
     }
     if(video.thumbnail){
-        const thumbnailKey = video.thumbnail.split('/').pop();
+        // const thumbnailKey = video.thumbnail.split('/').pop();
+        const thumbnailKey = new URL(video.thumbnail).pathname.substring(1)
         await deleteFromS3ByKey(thumbnailKey);
     }
     
