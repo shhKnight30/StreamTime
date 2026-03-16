@@ -369,13 +369,16 @@ router.route("/register").post(
     ,registerUser)
 // router.route("/register").post(upload.single({name:"avatar",maxcount:1}),registerUser)
 router.route("/login").post(loginUser)
-router.route("/logout").post(logoutUser)
+router.route("/logout").post(verifyJWT,logoutUser)
 router.route("/refresh-token").post(refreshAccessToken)
 router.route("/current-user").get(verifyJWT,getCurrentUser)
 router.route("/change-password").post(verifyJWT,changeCurrentPassword)
 router.route("/update-profile").patch(verifyJWT,updateAccountDetails)
 router.route("/avatar").patch(verifyJWT,upload.single("avatar"),updateUserAvatar)
 router.route("/cover-image").patch(verifyJWT,upload.single("coverImage"), updateUserCoverImage)
+router.route("/channel/:username").get(verifyJWT, getUserChannelProfile)
+router.route("/history").get(verifyJWT, getWatchHistory)
+router.route("/history/clear").patch(verifyJWT, clearWatchHistory)
 
 
 export default router

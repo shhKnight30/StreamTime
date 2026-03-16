@@ -54,6 +54,7 @@ import commentRouter from './routes/comments.routes.js';
 import tweetRouter from './routes/tweet.routes.js';
 import liveStreamRouter from './routes/liveStream.routes.js';
 import analyticsRouter from './routes/analytics.routes.js';
+import dashboardRouter from './routes/dashboard.routes.js';
 
 app.use('/api/v1/users',userRouter)
 app.use('/api/v1/videos',videoRouter)
@@ -64,7 +65,7 @@ app.use('/api/v1/comment', commentRouter)
 app.use('/api/v1/tweet', tweetRouter)
 app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
-
+app.use('/api/v1/dashboard', dashboardRouter)
 app.use(notFoundHandler)
 app.use(errorLogger)
 app.use(errorHandler)

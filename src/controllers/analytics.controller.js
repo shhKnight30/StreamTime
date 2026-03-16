@@ -8,14 +8,16 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 const getVideoAnalytics = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
-    
-    const analytics = await VideoAnalytics.findOne({ video: videoId })
+
+    // Find or create — analytics doc may not exist for older videos
+    let analytics = await VideoAnalytics.findOne({ video: videoId })
         .populate('video', 'title thumbnail');
-    
+
     if (!analytics) {
-        throw new ApiError(404, "Video analytics not found");
+        analytics = await VideoAnalytics.create({ video: videoId })
+        analytics = await analytics.populate('video', 'title thumbnail')
     }
-    
+
     return res.status(200).json(
         new ApiResponse(200, analytics, "Video analytics retrieved successfully")
     );

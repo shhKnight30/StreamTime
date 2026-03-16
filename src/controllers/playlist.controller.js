@@ -46,7 +46,7 @@ const getAllPlaylists = asyncHandler(async (req, res)=>{
     return res.status(200).json(
         new ApiResponse(200, { 
             playlists ,
-            pagiination :{
+            pagination :{
                 page,
                 limit,
                 total ,

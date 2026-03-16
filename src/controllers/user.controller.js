@@ -5,7 +5,7 @@ import {ApiResponse} from '../utils/ApiResponse.js'
 import { uploadOnS3 } from '../utils/aws-s3.js'
 import jwt from "jsonwebtoken"
 import logger from '../config/logger.js';
-
+// import { addToWatchHistory } from "../utils/watchHistory.js"
   
 const generateAccessAndRefreshTokens = async(userId)=>{
     try {
@@ -61,12 +61,11 @@ const registerUser = asyncHandler(async(req,res) =>{
         throw new ApiError(400,"avatar file is required")
     }
     const user = await User.create({
-        username,
+        username:username.toLowerCase(),
         fullname,
         password,
         avatar : avatarResult.url,
         coverImage : coverImageResult?.url || "" ,
-        username,
         email,
     })
     const createdUser = await User.findById(user._id).select(
@@ -132,12 +131,7 @@ const loginUser = asyncHandler(async(req,res)=>{
 const logoutUser = asyncHandler(async(req,res) =>{
     await User.findByIdAndUpdate(
         req.user._id,
-        {
-            $set :{
-                refreshToken : undefined,
-            }
-
-        },
+       { $unset: { refreshToken: 1 } }  ,
         {
             new :true,
         }
@@ -234,18 +228,25 @@ const updateAccountDetails = asyncHandler(async(req,res)=>{
     if(!fullname && !username&& !email){
         throw new ApiError(400,"all fields required")
     }
-    const user= await User.findByIdAndUpdate(req.user?._id,
-        {
-            $set:{
-                fullname,
-                email,
-                username
-            }
-        },
-        {
-            new:true
-        }
+    if(username){
+        const taken = await User.findOne({
+            username:username.toLowerCase(),
+            _id:{$ne:req.user._id}
+        })
+        if (taken) throw new ApiError(409, "username is already taken")
+    }
+
+     const updateFields = {}
+    if (fullname) updateFields.fullname = fullname
+    if (email)    updateFields.email    = email
+    if (username) updateFields.username = username.toLowerCase()
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: updateFields },
+        { new: true }
     ).select("-password")
+
 
     return res
     .status(200)
@@ -374,6 +375,44 @@ const getUserChannelProfile = asyncHandler(async(req,res)=>{
         new ApiResponse(200,channel[0],"user channel fetched successfully")
     )
 })
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20 } = req.query
+
+    const user = await User.findById(req.user._id)
+        .populate({
+            path: "watchHistory",
+            select: "title thumbnail duration views ownerName ownerUsername ownerAvatar createdAt",
+            options: {
+                limit: limit * 1,
+                skip: (page - 1) * limit,
+                sort: { createdAt: -1 }
+            }
+        })
+
+    if (!user) throw new ApiError(404, "User not found")
+
+    const total = user.watchHistory.length
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            videos: user.watchHistory,
+            pagination: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        }, "Watch history retrieved successfully")
+    )
+})
+
+
+
+const clearWatchHistory = asyncHandler(async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { $set: { watchHistory: [] } })
+    return res.status(200).json(new ApiResponse(200, {}, "Watch history cleared successfully"))
+})
 export {registerUser,
     loginUser,
     logoutUser,
@@ -383,5 +422,7 @@ export {registerUser,
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory,
+    clearWatchHistory
 }

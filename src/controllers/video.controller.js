@@ -6,7 +6,9 @@ import logger from '../config/logger.js';
 import { uploadOnS3, deleteFromS3ByKey } from "../utils/aws-s3.js";
 import { generateThumbnail, getVideoDuration } from "../utils/thumbnailGenerator.js";
 import fs from 'fs/promises';
-
+// import { addToWatchHistory } from "./user.controller.js"
+import { addToWatchHistory } from "../utils/watchHistory.js"
+import { VideoAnalytics } from "../models/videoAnalytics.models.js";
 const uploadVideo = asyncHandler(async(req,res)=>{
     const {title,description,visibility,tags,category} = req.body
     if (!title?.trim()) {
@@ -76,6 +78,8 @@ const uploadVideo = asyncHandler(async(req,res)=>{
         ownerAvatar : req.user.avatar,
         owner : req.user._id
     }) 
+
+    await VideoAnalytics.create({ video: video._id }).catch(() => {})
     return res.status(201).json(
         new ApiResponse(201,video,"Video uploaded successfully")
     )
@@ -125,6 +129,9 @@ const getVideoById = asyncHandler(async (req, res) =>{
     }
     video.views +=1
     await video.save()
+    if (req.user?._id) {
+        await addToWatchHistory(req.user._id, videoId)
+    }
     return res.status(200).json(new ApiResponse(200,video,"Video fetched successfully"))
 })
 

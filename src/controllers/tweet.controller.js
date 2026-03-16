@@ -267,7 +267,7 @@ const getTrendingHashtags = asyncHandler(async (req, res) => {
             return {
                 hashtag,
                 tweetCount: count,
-                growth: Math.random() * 100, // Placeholder - would need historical data
+                // growth: Math.random() * 100, // Placeholder - would need historical data
                 topTweets
             }
         })
