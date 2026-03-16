@@ -4,7 +4,8 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 import websocketServices from '../services/websocket.service.js'
-import webrtcService from '../services/webrtc.service.js'
+// import webrtcService from '../services/webrtc.service.js'
+import mediasoupService from '../services/mediasoup.service.js'
 
 const createLiveStream = asyncHandler(async (req , res) =>{
     const {title , description , category = 'other' , tags=[], visibility= 'public'} = req.body
@@ -235,8 +236,8 @@ const stopWebRTCStream = asyncHandler(async (req, res) => {
     await stream.save()
 
     // Cleanup WebRTC connections
-    webrtcService.cleanupStream(streamId)
-    
+    // webrtcService.cleanupStream(streamId)
+    await mediasoupService.cleanupStream(streamId)
     // Notify all connected clients
     websocketServices.broadcastToStream(stream.roomId, 'webrtc-stream-ended', {
         streamId: stream._id,
@@ -269,7 +270,7 @@ const getWebRTCStreamInfo = asyncHandler(async (req, res) => {
     }
 
     // Get WebRTC statistics
-    const webRTCStats = webrtcService.getStreamStats(streamId)
+    const webRTCStats = { streamId, activeConnections: 0 }
     const viewerCount = websocketServices.getViewerCount(streamId)
     const streamInfo = websocketServices.getStreamInfo(streamId)
 
@@ -326,13 +327,14 @@ const getActiveWebRTCStreams = asyncHandler(async (req, res) => {
 
     // Get WebRTC statistics for each stream
     const streamsWithStats = await Promise.all(streams.map(async (stream) => {
-        const webRTCStats = webrtcService.getStreamStats(stream._id.toString())
+        // const webRTCStats = webrtcService.getStreamStats(stream._id.toString())
         const viewerCount = websocketServices.getViewerCount(stream._id.toString())
         
         return {
             ...stream.toObject(),
             webRTC: {
-                ...webRTCStats,
+                streamId: stream._id,
+                activeConnections: 0,
                 currentViewers: viewerCount
             }
         }
@@ -356,15 +358,12 @@ const getActiveWebRTCStreams = asyncHandler(async (req, res) => {
  * Returns detailed statistics for all active streams
  */
 const getWebRTCStats = asyncHandler(async (req, res) => {
-    const allStreamStats = webrtcService.getAllStreamStats()
     const activeStreams = websocketServices.getActiveStreams()
-    
+
     return res.status(200).json(
         new ApiResponse(200, {
             totalActiveStreams: activeStreams.length,
-            totalWebRTCConnections: allStreamStats.reduce((total, stats) => total + stats.activeConnections, 0),
-            streams: allStreamStats,
-            activeStreams: activeStreams
+            activeStreams
         }, "WebRTC statistics retrieved successfully")
     )
 })

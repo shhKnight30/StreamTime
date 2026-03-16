@@ -1,6 +1,7 @@
 import * as mediasoup from 'mediasoup';
 import os from 'os';
 import logger from '../config/logger.js';
+import { ApiError } from '../utils/ApiError.js';
 
 class MediasoupService {
     constructor() {
@@ -211,10 +212,11 @@ class MediasoupService {
         const { transport, streamId } = transportData;
         const { producer } = producerData;
 
-        // Check if router can consume this producer
-        if (!transport.router.canConsume(producerId, rtpCapabilities)) {
-            throw new Error('Cannot consume this producer with given RTP capabilities');
-        }
+        
+        
+        const router = this.routers.get(streamId)
+        if(!router)throw new Error('Router not found for the stream')
+        if (!router.canConsume({ producerId, rtpCapabilities }))throw new Error('Cannot consume this producer with given RTP capabilities');
 
         const consumer = await transport.consume({
             producerId,
@@ -274,6 +276,22 @@ class MediasoupService {
      * Clean up resources for a stream
      */
     async cleanupStream(streamId) {
+
+        // Clean up consumers
+        for (const [id, data] of this.consumers.entries()) {
+            if (data.streamId === streamId) {
+                data.consumer.close()
+                this.consumers.delete(id)
+            }
+        }
+
+        // Clean up producers
+        for (const [id, data] of this.producers.entries()) {
+            if (data.streamId === streamId) {
+                data.producer.close()
+                this.producers.delete(id)
+            }
+        }
         // Close all transports for this stream
         const streamTransports = Array.from(this.transports.values())
             .filter(t => t.streamId === streamId);

@@ -200,6 +200,156 @@ router.route('/').get(getLiveStreams)
 
 /**
  * @swagger
+ * /api/v1/live-stream/webrtc/active:
+ *   get:
+ *     summary: Get active WebRTC streams
+ *     description: Get list of all active WebRTC streams with statistics
+ *     tags: [LiveStreams]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of streams per page
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [gaming, music, education, entertainment, sports, talk, other]
+ *         description: Filter by stream category
+ *         example: "gaming"
+ *     responses:
+ *       200:
+ *         description: Active WebRTC streams retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Active WebRTC streams retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     streams:
+ *                       type: array
+ *                       items:
+ *                         allOf:
+ *                           - $ref: '#/components/schemas/LiveStream'
+ *                           - type: object
+ *                             properties:
+ *                               webRTC:
+ *                                 type: object
+ *                                 properties:
+ *                                   streamId:
+ *                                     type: string
+ *                                     example: "64f1a2b3c4d5e6f7g8h9i0j1"
+ *                                   activeConnections:
+ *                                     type: integer
+ *                                     example: 25
+ *                                   hasMediaStream:
+ *                                     type: boolean
+ *                                     example: true
+ *                                   currentViewers:
+ *                                     type: integer
+ *                                     example: 25
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ */
+router.route('/webrtc/active').get(getActiveWebRTCStreams)
+
+/**
+ * @swagger
+ * /api/v1/live-stream/webrtc/stats:
+ *   get:
+ *     summary: Get WebRTC statistics
+ *     description: Get comprehensive WebRTC connection statistics for all active streams
+ *     tags: [LiveStreams]
+ *     responses:
+ *       200:
+ *         description: WebRTC statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "WebRTC statistics retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalActiveStreams:
+ *                       type: integer
+ *                       description: Total number of active WebRTC streams
+ *                       example: 15
+ *                     totalWebRTCConnections:
+ *                       type: integer
+ *                       description: Total WebRTC connections across all streams
+ *                       example: 500
+ *                     streams:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           streamId:
+ *                             type: string
+ *                             example: "64f1a2b3c4d5e6f7g8h9i0j1"
+ *                           activeConnections:
+ *                             type: integer
+ *                             example: 25
+ *                           hasMediaStream:
+ *                             type: boolean
+ *                             example: true
+ *                           audioTracks:
+ *                             type: integer
+ *                             example: 1
+ *                           videoTracks:
+ *                             type: integer
+ *                             example: 1
+ *                     activeStreams:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           streamId:
+ *                             type: string
+ *                             example: "64f1a2b3c4d5e6f7g8h9i0j1"
+ *                           streamTitle:
+ *                             type: string
+ *                             example: "My Live Stream"
+ *                           startTime:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2026-02-12T20:00:00.000Z"
+ *                           viewerCount:
+ *                             type: integer
+ *                             example: 25
+ *                           isActive:
+ *                             type: boolean
+ *                             example: true
+ */
+router.route('/webrtc/stats').get(getWebRTCStats)
+
+/**
+ * @swagger
  * /api/v1/live-stream/{streamId}:
  *   get:
  *     summary: Get live stream by ID
@@ -804,154 +954,6 @@ router.route('/:streamId/stop-webrtc').post(verifyJWT, stopWebRTCStream)
  */
 router.route('/:streamId/webrtc-info').get(getWebRTCStreamInfo)
 
-/**
- * @swagger
- * /api/v1/live-stream/webrtc/active:
- *   get:
- *     summary: Get active WebRTC streams
- *     description: Get list of all active WebRTC streams with statistics
- *     tags: [LiveStreams]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 20
- *         description: Number of streams per page
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *           enum: [gaming, music, education, entertainment, sports, talk, other]
- *         description: Filter by stream category
- *         example: "gaming"
- *     responses:
- *       200:
- *         description: Active WebRTC streams retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Active WebRTC streams retrieved successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     streams:
- *                       type: array
- *                       items:
- *                         allOf:
- *                           - $ref: '#/components/schemas/LiveStream'
- *                           - type: object
- *                             properties:
- *                               webRTC:
- *                                 type: object
- *                                 properties:
- *                                   streamId:
- *                                     type: string
- *                                     example: "64f1a2b3c4d5e6f7g8h9i0j1"
- *                                   activeConnections:
- *                                     type: integer
- *                                     example: 25
- *                                   hasMediaStream:
- *                                     type: boolean
- *                                     example: true
- *                                   currentViewers:
- *                                     type: integer
- *                                     example: 25
- *                     pagination:
- *                       $ref: '#/components/schemas/Pagination'
- */
-router.route('/webrtc/active').get(getActiveWebRTCStreams)
 
-/**
- * @swagger
- * /api/v1/live-stream/webrtc/stats:
- *   get:
- *     summary: Get WebRTC statistics
- *     description: Get comprehensive WebRTC connection statistics for all active streams
- *     tags: [LiveStreams]
- *     responses:
- *       200:
- *         description: WebRTC statistics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "WebRTC statistics retrieved successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalActiveStreams:
- *                       type: integer
- *                       description: Total number of active WebRTC streams
- *                       example: 15
- *                     totalWebRTCConnections:
- *                       type: integer
- *                       description: Total WebRTC connections across all streams
- *                       example: 500
- *                     streams:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           streamId:
- *                             type: string
- *                             example: "64f1a2b3c4d5e6f7g8h9i0j1"
- *                           activeConnections:
- *                             type: integer
- *                             example: 25
- *                           hasMediaStream:
- *                             type: boolean
- *                             example: true
- *                           audioTracks:
- *                             type: integer
- *                             example: 1
- *                           videoTracks:
- *                             type: integer
- *                             example: 1
- *                     activeStreams:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           streamId:
- *                             type: string
- *                             example: "64f1a2b3c4d5e6f7g8h9i0j1"
- *                           streamTitle:
- *                             type: string
- *                             example: "My Live Stream"
- *                           startTime:
- *                             type: string
- *                             format: date-time
- *                             example: "2026-02-12T20:00:00.000Z"
- *                           viewerCount:
- *                             type: integer
- *                             example: 25
- *                           isActive:
- *                             type: boolean
- *                             example: true
- */
-router.route('/webrtc/stats').get(getWebRTCStats)
 
 export default router

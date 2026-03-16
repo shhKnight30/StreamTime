@@ -393,7 +393,7 @@ class WebSocketService {
                         this.activeStreams.delete(streamId)
                         this.streamPeers.delete(streamId)
                         this.viewerConnections.delete(streamId)
-
+                        mediasoupService.cleanupStream(streamId)
                         logger.logWebSocket('Streamer Disconnected - Stream Ended', { streamId });
                         break
                     }
