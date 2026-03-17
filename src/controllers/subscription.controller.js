@@ -50,7 +50,7 @@ const getChannelSubscribers = asyncHandler(async (req, res)=>{
     const {channelId} = req.params
     const {page = 1 , limit = 10} = req.query
     const subscribers = await Subscription.find({channel: channelId})
-    .populate("subscriber" , "username fullname avatar")
+    .populate('channel', 'username fullname avatar subscriberCount')
     .limit(limit *1 )
     .skip((page - 1) * limit)
     .sort({createdAt : -1})

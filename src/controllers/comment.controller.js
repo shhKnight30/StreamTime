@@ -12,16 +12,16 @@ const addComment = asyncHandler(async (req , res ) =>{
 
     let parentExists
     switch(parentContentType){
-        case 'video':
+        case 'Video':
             parentExists = await Video.findById(parentContentId)
             break
-        case 'playlist':
+        case 'Playlist':
             parentExists = await Playlist.findById(parentContentId)
             break
-        case 'comment' :
+        case 'Comment' :
             parentExists= await Comment.findById(parentContentId)
             break
-        case 'tweet' :
+        case 'Tweet' :
             parentExists= await Tweet.findById(parentContentId)
             break
     }

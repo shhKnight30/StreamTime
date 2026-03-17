@@ -5,6 +5,9 @@ import { ApiResponse } from '../utils/ApiResponse.js'
 import { uploadOnS3 } from '../utils/aws-s3.js'
 import jwt from "jsonwebtoken"
 import logger from '../config/logger.js';
+// import  "../models/video.models.js";
+// import "../models/subscriptions.models.js";
+import { Video } from "../models/video.models.js";
 // import { addToWatchHistory } from "../utils/watchHistory.js"
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -153,7 +156,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-    
+
     if (!incomingRefreshToken) {
         throw new ApiError(401, "unauthorized request")
     }
@@ -272,6 +275,9 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     if (!avatarResult) {
         throw new ApiError(400, "Error while uploading avatar file")
     }
+    
+    // 1. Update the User profile
+    // logger.log(avatarResult)
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -281,6 +287,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
             new: true
         }
     ).select("-password")
+
+    // 2. ✅ Update all old videos with the new avatarURL
+    await Video.updateMany(
+        { owner: req.user._id },
+        { $set: { ownerAvatar: avatarResult.url } } // Uses avatarResult.url
+    );
+
     return res
         .status(200)
         .json(
