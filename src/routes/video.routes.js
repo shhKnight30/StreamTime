@@ -231,7 +231,7 @@ router.get("/search", searchVideos);
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
-router.get("/:videoId", verifyJWT, getVideoById);
+router.get("/:videoId", getVideoById);
 
 /**
  * @swagger

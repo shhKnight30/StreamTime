@@ -15,4 +15,4 @@ const liveStreamAnalyticsSchema = new Schema({
     }
 }, { timestamps: true });
 
-export const LiveStreamAnalystics = mongoose.model('liveStreamAnalystics',liveStreamAnalyticsSchema)
+export const LiveStreamAnalytics = mongoose.model('LiveStreamAnalytics', liveStreamAnalyticsSchema)

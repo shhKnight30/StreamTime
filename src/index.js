@@ -1,12 +1,14 @@
 import dotenv from 'dotenv';
+import './config/env.js';
+
 import connectDB from './db/index.js';
+console.log("heelo")
 import { app } from './app.js'
 import http from 'http'
 import websocketServices from './services/websocket.service.js';
 import logger from './config/logger.js';
 import mongoose from 'mongoose';
 import mediasoupService from './services/mediasoup.service.js';
-import './config/env.js';
 
 const server = http.createServer(app)
 

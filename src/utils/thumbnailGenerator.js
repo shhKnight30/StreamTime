@@ -1,12 +1,13 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import path from 'path';
 import fs from 'fs/promises';
 import logger from '../config/logger.js';
 
 // Set ffmpeg path
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 /**
  * Generate thumbnail from video file
  * @param {string} videoPath - Path to video file
@@ -62,7 +63,8 @@ export const getVideoDuration = async (videoPath) => {
         return new Promise((resolve, reject) => {
             ffmpeg.ffprobe(videoPath, (err, metadata) => {
                 if (err) {
-                    reject(err);
+                    // reject(err);
+                    resolve(0)
                     return;
                 }
                 resolve(metadata.format.duration || 0);

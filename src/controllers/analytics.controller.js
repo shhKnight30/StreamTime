@@ -1,6 +1,6 @@
 import { VideoAnalytics } from "../models/videoAnalytics.models.js";
 import { UserAnalytics } from "../models/userAnalytics.models.js";
-import { LiveStreamAnalystics } from "../models/liveStreamAnalytics.models.js";
+import { LiveStreamAnalytics } from "../models/liveStreamAnalytics.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";

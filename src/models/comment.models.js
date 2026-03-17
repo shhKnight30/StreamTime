@@ -1,6 +1,6 @@
 import mongoose,{Schema} from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
-
+import  "./user.models.js";
 const commentSchema = new Schema({
     content : {
         type : String,
@@ -15,7 +15,7 @@ const commentSchema = new Schema({
     },
     parentContentType: { 
         type: String, 
-        enum: ['comment', 'video', 'tweet', 'playlist','livestream'], 
+        enum: ['Comment', 'Video', 'Tweet', 'Playlist', 'Livestream'], 
         required: true 
     },
     parentContentId: { 

@@ -45,6 +45,18 @@ app.get('/health', (req, res) => {
 
 // app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
+import { User } from './models/user.models.js';
+import { Video } from './models/video.models.js';
+import { Tweet } from './models/tweet.model.js';
+import { Subscription } from './models/subscriptions.models.js';
+import { Comment } from './models/comment.models.js';
+import { Like } from './models/like.models.js';
+import { LiveStream } from './models/livestream.model.js';
+import { Playlist } from './models/playlist.model.js';
+import { UserAnalytics } from './models/userAnalytics.models.js';
+import { VideoAnalytics } from './models/videoAnalytics.models.js';
+
+
 import  userRouter from "./routes/user.routes.js"
 import  videoRouter  from './routes/video.routes.js';
 import subscriptionRouter from './routes/subscription.routes.js';
@@ -66,7 +78,15 @@ app.use('/api/v1/tweet', tweetRouter)
 app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
 app.use('/api/v1/dashboard', dashboardRouter)
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({
+        success: false,
+        message: err.message || "Internal Server Error"
+    });
+});
 app.use(notFoundHandler)
 app.use(errorLogger)
 app.use(errorHandler)
+
 export {app} 

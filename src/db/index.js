@@ -41,6 +41,7 @@ class DatabaseManager {
             
             return true;
         } catch (error) {
+            logger.log('CONNECTION ERROR:', error.message)
             this.isConnected = false;
             this.retryCount++;
             
@@ -139,6 +140,9 @@ const dbManager = new DatabaseManager();
 
 const connectDB = async ()=>{
     try {
+        console.log('Connecting to:', `${process.env.MONGODB_URI}/${process.env.DB_NAME}`)
+        logger.info('Attempting to connect to MongoDB...');
+
         await dbManager.connectWithRetry();
         logger.info("Database connection established successfully");
     } catch (error) {
