@@ -26,7 +26,7 @@ const createTweet = asyncHandler(async (req , res )=>{
     }
 
     const tweet = await Tweet.create({
-        content : content.trim(),
+        content : content ? content.trim() : "", // ✅ Safely checks if content exists
         media,
         user : req.user?._id,
         visibility

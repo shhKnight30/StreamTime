@@ -5,7 +5,10 @@ import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 const tweetSchema = new Schema({
     content: {
         type: String,
-        required: true,
+        // required: true,
+        required: function() {
+            return !this.media || this.media.length === 0;
+        },
         trim: true,
         maxlength: 280
     },
