@@ -1,505 +1,421 @@
-import { Server } from "socket.io";
-import logger from '../config/logger.js';
-import mediasoupService from './mediasoup.service.js';
+import { Server } from 'socket.io'
+import logger from '../config/logger.js'
+import mediasoupService from './mediasoup.service.js'
 
 class WebSocketService {
     constructor() {
         this.io = null
-        this.activeStreams = new Map()
-        this.streamPeers = new Map()
-        this.viewerConnections = new Map()
+        this.activeStreams = new Map()    // streamId → { streamerId, streamerSocketId, streamTitle, startTime, isActive }
+        this.streamPeers = new Map()     // streamId → Map(userId → peerInfo)
+        this.viewerConnections = new Map() // streamId → Set(socketId)
     }
 
     initialize(server) {
         this.io = new Server(server, {
             cors: {
-            origin: "http://localhost:3000", // Replace with your frontend URL
-            methods: ["GET", "POST"],
-            credentials: true
-        }
+                origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+                methods: ['GET', 'POST'],
+                credentials: true
+            }
         })
 
         this.io.on('connection', (socket) => {
-            logger.logWebSocket('User Connected', { socketId: socket.id });
-            socket.on('create-transport', async (data) => {
-    try {
-        const { streamId, direction } = data;
-        const peerId = socket.id; // Using socket ID as peer identifier
+            logger.logWebSocket('User Connected', { socketId: socket.id })
 
-        const transportOptions = await mediasoupService.createTransport(
-            streamId, 
-            peerId, 
-            direction
-        );
+            // ─────────────────────────────────────────────
+            // ROOM MANAGEMENT
+            // ─────────────────────────────────────────────
 
-        socket.emit('transport-created', { transport: transportOptions,direction });
-        
-        logger.logWebSocket('Transport Created', { 
-            streamId, 
-            direction, 
-            transportId: transportOptions.id 
-        });
-    } catch (error) {
-        logger.error('Failed to create transport', { error: error.message });
-        socket.emit('error', { message: 'Failed to create transport' });
-    }
-});
-socket.on('get-producers', (data) => {
-    const { streamId } = data;
-    const producers = mediasoupService.getStreamProducers(streamId);
-    socket.emit('producers-list', { producers });
-});
-            // Existing events
             socket.on('join-stream', (streamId) => {
                 socket.join(streamId)
-                logger.logWebSocket('Stream Joined', { streamId, socketId: socket.id });
+                logger.logWebSocket('Stream Room Joined', { streamId, socketId: socket.id })
             })
 
             socket.on('leave-stream', (streamId) => {
                 socket.leave(streamId)
-                logger.logWebSocket('Stream Left', { streamId, socketId: socket.id });
+                logger.logWebSocket('Stream Room Left', { streamId, socketId: socket.id })
             })
 
-            // Streamer starts WebRTC stream
-            socket.on('start-webrtc-stream', async (data) => { // Added async
-    const { streamId, userId, streamTitle } = data;
+            // ─────────────────────────────────────────────
+            // STREAMER — START STREAM
+            // ─────────────────────────────────────────────
 
-    // 1. UPDATE DATABASE STATUS
-    await mediasoupService.cleanupStream(streamId);
-    await mediasoupService.startStreamInDB(streamId);
-
-    // Store streamer info in memory (Existing logic)
-    this.activeStreams.set(streamId, {
-        streamerId: userId,
-        streamerSocketId: socket.id,
-        streamTitle,
-        startTime: new Date(),
-        isActive: true
-    });
-
-    // Initialize tracking (Existing logic)
-    this.streamPeers.set(streamId, new Map());
-    this.viewerConnections.set(streamId, new Set());
-
-    socket.join(streamId);
-
-    logger.logWebSocket('WebRTC Stream Started & DB Updated', {
-        streamId,
-        userId
-    });
-
-    socket.emit('stream-started', {
-        streamId,
-        status: 'ready'
-    });
-});
-
-            // Viewer joins WebRTC stream
-            socket.on('join-webrtc-stream', (data) => {
-                const { streamId, userId } = data
-
-                if (!this.activeStreams.has(streamId)) {
-                    socket.emit('stream-error', {
-                        error: 'Stream not found',
-                        streamId
-                    })
-                    return
-                }
-
-                const streamInfo = this.activeStreams.get(streamId)
-
-                // Add viewer to connections
-                if (!this.viewerConnections.has(streamId)) {
-                    this.viewerConnections.set(streamId, new Set());
-                }
-                this.viewerConnections.get(streamId).add(socket.id)
-                const currentViewerCount = this.viewerConnections.get(streamId).size;
-                // Store viewer info
-                const peerInfo = {
-                    userId,
-                    socketId: socket.id,
-                    joinedAt: new Date(),
-                    isConnected: false
-                }
-                this.streamPeers.get(streamId).set(userId, peerInfo)
-
-                // Join viewer to stream room
-                socket.join(streamId)
-
-                logger.logWebSocket('Viewer Joined WebRTC Stream', {
-                    streamId,
-                    userId,
-                    socketId: socket.id,
-                    totalViewers: currentViewerCount
-                })
-
-                // Notify streamer about new viewer
-                this.io.to(streamId).emit('viewer-count-update', { currentViewerCount });
-                const streamerSocketId = streamInfo.streamerSocketId
-                this.io.to(streamerSocketId).emit('viewer-joined', {
-                    userId,
-                    socketId: socket.id,
-                    totalViewers: this.viewerConnections.get(streamId).size
-                })
-
-                // Notify viewer they've joined
-                socket.emit('stream-joined', {
-                    streamId,
-                    streamTitle: streamInfo.streamTitle,
-                    totalViewers: this.viewerConnections.get(streamId).size,
-                    status: 'waiting-for-offer'
-                })
-            })
-
-            // Streamer sends WebRTC offer to viewer
-            socket.on('webrtc-offer', (data) => {
-                const { streamId, targetUserId, offer } = data
-
-                if (!this.streamPeers.has(streamId)) {
-                    socket.emit('stream-error', {
-                        error: 'Stream not found',
-                        streamId
-                    })
-                    return
-                }
-
-                const targetPeer = this.streamPeers.get(streamId).get(targetUserId)
-                if (!targetPeer) {
-                    socket.emit('stream-error', {
-                        error: 'Viewer not found',
-                        targetUserId
-                    })
-                    return
-                }
-
-                logger.logWebSocket('WebRTC Offer Sent', {
-                    streamId,
-                    from: socket.id,
-                    to: targetPeer.socketId,
-                    targetUserId
-                })
-
-                // Send offer to specific viewer
-                this.io.to(targetPeer.socketId).emit('webrtc-offer', {
-                    streamId,
-                    fromUserId: this.activeStreams.get(streamId).streamerId,
-                    offer
-                })
-            })
-
-            // Viewer sends WebRTC answer to streamer
-            socket.on('webrtc-answer', (data) => {
-                const { streamId, answer } = data
-
-                if (!this.activeStreams.has(streamId)) {
-                    socket.emit('stream-error', {
-                        error: 'Stream not found',
-                        streamId
-                    })
-                    return
-                }
-
-                const streamInfo = this.activeStreams.get(streamId)
-
-                logger.logWebSocket('WebRTC Answer Sent', {
-                    streamId,
-                    from: socket.id,
-                    to: streamInfo.streamerSocketId
-                })
-
-                // Send answer to streamer
-                this.io.to(streamInfo.streamerSocketId).emit('webrtc-answer', {
-                    streamId,
-                    fromSocketId: socket.id,
-                    answer
-                })
-            })
-
-            // ICE candidate exchange
-            socket.on('ice-candidate', (data) => {
-                const { streamId, targetUserId, candidate } = data
-
-                let targetSocketId
-
-                if (targetUserId) {
-                    // Streamer sending to viewer or viewer sending to streamer
-                    const streamInfo = this.activeStreams.get(streamId)
-                    if (streamInfo) {
-                        targetSocketId = targetUserId === streamInfo.streamerId
-                            ? streamInfo.streamerSocketId
-                            : this.streamPeers.get(streamId)?.get(targetUserId)?.socketId
-                    }
-                } else {
-                    // If no target, broadcast to all in stream (except sender)
-                    socket.to(streamId).emit('ice-candidate', {
-                        streamId,
-                        fromSocketId: socket.id,
-                        candidate
-                    })
-                    return
-                }
-
-                if (targetSocketId) {
-                    logger.logWebSocket('ICE Candidate Sent', {
-                        streamId,
-                        from: socket.id,
-                        to: targetSocketId
-                    })
-
-                    this.io.to(targetSocketId).emit('ice-candidate', {
-                        streamId,
-                        fromSocketId: socket.id,
-                        candidate
-                    })
-                }
-            })
-
-            // ===== MEDIASOUP SFU EVENTS =====
-
-            // Create WebRTC transport for client
-            socket.on('connect-transport', async (data) => {
+            socket.on('start-webrtc-stream', async (data) => {
                 try {
-                    const { transportId, dtlsParameters } = data;
-                    const transportData = mediasoupService.transports.get(transportId);
-                    
-                    if (!transportData) throw new Error("Transport not found");
+                    const { streamId, userId, streamTitle } = data
 
-                    await transportData.transport.connect({ dtlsParameters });
-                    
-                    socket.emit('transport-connected', { transportId });
-                    logger.logWebSocket('Transport Connected (DTLS)', { transportId });
+                    // Clean up any stale mediasoup state for this stream
+                    await mediasoupService.cleanupStream(streamId)
+
+                    // Mark live in database
+                    await mediasoupService.startStreamInDB(streamId)
+
+                    // Track in memory
+                    this.activeStreams.set(streamId, {
+                        streamerId: userId,
+                        streamerSocketId: socket.id,
+                        streamTitle,
+                        startTime: new Date(),
+                        isActive: true
+                    })
+                    this.streamPeers.set(streamId, new Map())
+                    this.viewerConnections.set(streamId, new Set())
+
+                    socket.join(streamId)
+
+                    logger.logWebSocket('WebRTC Stream Started', { streamId, userId })
+
+                    socket.emit('stream-started', { streamId, status: 'ready' })
                 } catch (error) {
-                    logger.error('Failed to connect transport', { error: error.message });
+                    logger.error('Failed to start stream', { error: error.message })
+                    socket.emit('stream-error', { error: 'Failed to start stream' })
                 }
+            })
+
+            // ─────────────────────────────────────────────
+            // VIEWER — JOIN STREAM
+            // ─────────────────────────────────────────────
+
+            socket.on('join-webrtc-stream', async (data) => {
+    const { streamId, userId } = data;
+
+    try {
+        // 1. Verify Stream Exists in memory
+        if (!this.activeStreams.has(streamId)) {
+            socket.emit('stream-error', { error: 'Stream is offline or does not exist', streamId });
+            return;
+        }
+
+        // 2. Database Security Check
+        const mongoId = streamId.replace('stream_', '');
+        const stream = await LiveStream.findById(mongoId);
+
+        if (!stream) {
+            socket.emit('stream-error', { error: 'Stream record not found in database', streamId });
+            return;
+        }
+
+        // 3. Access Control Logic
+        if (stream.visibility === 'private') {
+            // If it's private, ONLY the streamer should be able to join
+            // (You can expand this later to check an 'allowedUsers' array)
+            if (stream.streamer.toString() !== userId) {
+                logger.warn(`Unauthorized access attempt to private stream ${streamId} by user ${userId}`);
+                socket.emit('stream-error', { error: 'Unauthorized: This stream is private', streamId });
+                return;
+            }
+        }
+
+        // --- Original Join Logic Proceeds Here ---
+        const streamInfo = this.activeStreams.get(streamId);
+
+        if (!this.viewerConnections.has(streamId)) {
+            this.viewerConnections.set(streamId, new Set());
+        }
+        
+        this.viewerConnections.get(streamId).add(socket.id);
+        const currentViewerCount = this.viewerConnections.get(streamId).size;
+
+        const peerInfo = {
+            userId,
+            socketId: socket.id,
+            joinedAt: new Date(),
+            isConnected: false
+        };
+        
+        this.streamPeers.get(streamId).set(userId, peerInfo);
+        socket.join(streamId);
+
+        logger.logWebSocket('Viewer Joined WebRTC Stream', {
+            streamId,
+            userId,
+            socketId: socket.id,
+            totalViewers: currentViewerCount
+        });
+
+        this.io.to(streamId).emit('viewer-count-update', { currentViewerCount });
+        
+        const streamerSocketId = streamInfo.streamerSocketId;
+        this.io.to(streamerSocketId).emit('viewer-joined', {
+            userId,
+            socketId: socket.id,
+            totalViewers: currentViewerCount
+        });
+
+        socket.emit('stream-joined', {
+            streamId,
+            streamTitle: streamInfo.streamTitle,
+            totalViewers: currentViewerCount,
+            status: 'ready'
+        });
+
+    } catch (error) {
+        logger.error('Error joining stream', { error: error.message });
+        socket.emit('stream-error', { error: 'Internal server error while joining stream' });
+    }
             });
 
-            // Client wants to produce (send) media
+            // ─────────────────────────────────────────────
+            // MEDIASOUP SIGNALING
+            // ─────────────────────────────────────────────
+
+            socket.on('get-router-capabilities', async (data) => {
+                try {
+                    const { streamId } = data
+                    const router = await mediasoupService.getOrCreateRouter(streamId)
+
+                    socket.emit('router-capabilities', {
+                        capabilities: router.rtpCapabilities,
+                        streamId
+                    })
+
+                    logger.logWebSocket('Router Capabilities Sent', { streamId, socketId: socket.id })
+                } catch (error) {
+                    logger.error('Failed to get router capabilities', { error: error.message })
+                    socket.emit('router-error', { error: error.message, streamId: data.streamId })
+                }
+            })
+
+            socket.on('create-transport', async (data) => {
+                try {
+                    const { streamId, direction } = data
+                    const peerId = socket.id
+
+                    const transportOptions = await mediasoupService.createTransport(streamId, peerId, direction)
+
+                    socket.emit('transport-created', { transport: transportOptions, direction })
+
+                    logger.logWebSocket('Transport Created', {
+                        streamId,
+                        direction,
+                        transportId: transportOptions.id,
+                        socketId: socket.id
+                    })
+                } catch (error) {
+                    logger.error('Failed to create transport', { error: error.message })
+                    socket.emit('transport-error', { error: 'Failed to create transport' })
+                }
+            })
+
+            socket.on('connect-transport', async (data) => {
+                try {
+                    const { transportId, dtlsParameters } = data
+                    const transportData = mediasoupService.transports.get(transportId)
+
+                    if (!transportData) throw new Error('Transport not found')
+
+                    await transportData.transport.connect({ dtlsParameters })
+
+                    socket.emit('transport-connected', { transportId })
+
+                    logger.logWebSocket('Transport Connected (DTLS)', { transportId, socketId: socket.id })
+                } catch (error) {
+                    logger.error('Failed to connect transport', { error: error.message })
+                    socket.emit('transport-error', { error: error.message, transportId: data.transportId })
+                }
+            })
+
             socket.on('produce', async (data) => {
                 try {
-                    const { transportId, kind, rtpParameters } = data;
-                    const producerData = await mediasoupService.createProducer(transportId, kind, rtpParameters);
+                    const { transportId, kind, rtpParameters } = data
+                    const producerData = await mediasoupService.createProducer(transportId, kind, rtpParameters)
 
-                    socket.emit('producer-created', {
-                        producer: producerData,
-                        transportId
-                    });
-
+                    socket.emit('producer-created', { producer: producerData, transportId })
+                    const streamId = mediasoupService.transports.get(transportId).streamId;
+                    const producers = mediasoupService.getStreamProducers(streamId);
+                    if (producers.some(p => p.kind === 'video')) {
+                        // Small delay to ensure both audio/video producers are initialized
+                        setTimeout(() => {
+                            recordingService.startRecording(streamId);
+                        }, 2000);
+                    }
                     logger.logWebSocket('Producer Created', {
                         producerId: producerData.id,
                         kind,
                         transportId,
                         socketId: socket.id
-                    });
+                    })
                 } catch (error) {
-                    logger.error('Failed to create producer', { error: error.message, socketId: socket.id });
-                    socket.emit('producer-error', {
-                        error: error.message,
-                        transportId: data.transportId
-                    });
+                    logger.error('Failed to create producer', { error: error.message })
+                    socket.emit('producer-error', { error: error.message, transportId: data.transportId })
                 }
-            });
+            })
 
-            // Client wants to consume (receive) media
             socket.on('consume', async (data) => {
                 try {
-                    const { transportId, producerId, rtpCapabilities } = data;
-                    const consumerData = await mediasoupService.createConsumer(transportId, producerId, rtpCapabilities);
+                    const { transportId, producerId, rtpCapabilities } = data
+                    const consumerData = await mediasoupService.createConsumer(transportId, producerId, rtpCapabilities)
 
-                    socket.emit('consumer-created', {
-                        consumer: consumerData,
-                        transportId,
-                        producerId
-                    });
+                    socket.emit('consumer-created', { consumer: consumerData, transportId, producerId })
 
                     logger.logWebSocket('Consumer Created', {
                         consumerId: consumerData.id,
                         producerId,
                         transportId,
                         socketId: socket.id
-                    });
+                    })
                 } catch (error) {
-                    logger.error('Failed to create consumer', { error: error.message, socketId: socket.id });
+                    logger.error('Failed to create consumer', { error: error.message })
                     socket.emit('consumer-error', {
                         error: error.message,
                         transportId: data.transportId,
                         producerId: data.producerId
-                    });
+                    })
                 }
-            });
+            })
 
-            // Get router capabilities for client
-            // src/services/websocket.service.js
-
-            socket.on('get-router-capabilities', async (data) => {
-                try {
-                    const { streamId } = data;
-                    
-                    // FIX: Ensure the router is created/retrieved before getting capabilities
-                    const router = await mediasoupService.getOrCreateRouter(streamId);
-                    const capabilities = router.rtpCapabilities;
-
-                    socket.emit('router-capabilities', {
-                        capabilities,
-                        streamId
-                    });
-                    
-                    logger.logWebSocket('Sent Router Capabilities to Viewer', { streamId, socketId: socket.id });
-                } catch (error) {
-                    logger.error('Failed to get router capabilities', { error: error.message, socketId: socket.id });
-                    socket.emit('router-error', {
-                        error: error.message,
-                        streamId: data.streamId
-                    });
-                }
-            });
-
-            // Get available producers for a stream
             socket.on('get-producers', (data) => {
                 try {
-                    const { streamId } = data;
-                    const producers = mediasoupService.getStreamProducers(streamId);
-
-                    socket.emit('producers-list', {
-                        producers,
-                        streamId
-                    });
+                    const { streamId } = data
+                    const producers = mediasoupService.getStreamProducers(streamId)
+                    socket.emit('producers-list', { producers, streamId })
                 } catch (error) {
-                    logger.error('Failed to get producers', { error: error.message, socketId: socket.id });
-                    socket.emit('producers-error', {
-                        error: error.message,
-                        streamId: data.streamId
-                    });
+                    logger.error('Failed to get producers', { error: error.message })
+                    socket.emit('producers-error', { error: error.message })
                 }
-            });
+            })
 
-            
+            // ─────────────────────────────────────────────
+            // STREAMER — END STREAM
+            // ─────────────────────────────────────────────
 
-            // Streamer ends stream
-            socket.on('stream-ended', (data) => {
+            socket.on('stream-ended', async (data) => {
                 const { streamId } = data
 
-                if (!this.activeStreams.has(streamId)) {
-                    return
-                }
-
+                if (!this.activeStreams.has(streamId)) return
+                recordingService.stopRecording(streamId);
                 const streamInfo = this.activeStreams.get(streamId)
-                const duration = Date.now() - streamInfo.startTime
+                const duration = Date.now() - new Date(streamInfo.startTime).getTime()
 
-                logger.logWebSocket('WebRTC Stream Ended', {
+                logger.logWebSocket('Stream Ended by Streamer', {
                     streamId,
                     duration,
                     totalViewers: this.viewerConnections.get(streamId)?.size || 0
                 })
 
-                // Notify all viewers that stream ended
+                // Notify all viewers
                 this.io.to(streamId).emit('stream-ended', {
                     streamId,
                     message: 'Stream has ended',
                     duration
                 })
 
-                // Clean up stream data
+                // Update database
+                await mediasoupService.stopStreamInDB(streamId)
+
+                // Clean up memory
                 this.activeStreams.delete(streamId)
                 this.streamPeers.delete(streamId)
                 this.viewerConnections.delete(streamId)
 
-                // Leave the room
+                // Clean up mediasoup resources
+                await mediasoupService.cleanupStream(streamId)
+
                 socket.leave(streamId)
             })
+
+            // ─────────────────────────────────────────────
+            // CHAT
+            // ─────────────────────────────────────────────
+
             socket.on('send-chat-message', (data) => {
-                const { streamId, message, user } = data;
-                
-                // Broadcast message to everyone in the stream room
+                const { streamId, message, user } = data
+
                 this.io.to(streamId).emit('new-chat-message', {
                     id: Date.now(),
                     text: message,
                     username: user.username,
                     avatar: user.avatar,
                     timestamp: new Date()
-                });
-            });
-            // Handle disconnection
+                })
+            })
+
+            // ─────────────────────────────────────────────
+            // DISCONNECT
+            // ─────────────────────────────────────────────
+
             socket.on('disconnect', async () => {
-    logger.logWebSocket('User Disconnected', { socketId: socket.id });
+                logger.logWebSocket('User Disconnected', { socketId: socket.id })
 
-    // 1. Check if the disconnected user was a STREAMER
-    for (const [streamId, streamInfo] of this.activeStreams.entries()) {
-        if (streamInfo.streamerSocketId === socket.id) {
-            
-            // ✅ FIX: Now streamId is defined within this scope
-            try {
-                await mediasoupService.stopStreamInDB(streamId);
-            } catch (err) {
-                logger.error('Failed to stop stream in DB on disconnect', { error: err.message });
-            }
+                // Check if disconnected user was the streamer
+                for (const [streamId, streamInfo] of this.activeStreams.entries()) {
+                    if (streamInfo.streamerSocketId === socket.id) {
+                        logger.logWebSocket('Streamer Disconnected — Ending Stream', { streamId })
 
-            // Notify all viewers in the room that the stream has ended
-            this.io.to(streamId).emit('stream-ended', {
-                streamId,
-                message: 'Streamer disconnected',
-                reason: 'streamer-disconnect'
-            });
+                        // Notify all viewers
+                        this.io.to(streamId).emit('stream-ended', {
+                            streamId,
+                            message: 'Streamer disconnected',
+                            reason: 'streamer-disconnect'
+                        })
 
-            // Clean up all server-side memory for this stream
-            this.activeStreams.delete(streamId);
-            this.streamPeers.delete(streamId);
-            this.viewerConnections.delete(streamId);
-            
-            // Mediasoup-specific cleanup (closing routers/transports)
-            mediasoupService.cleanupStream(streamId);
-            
-            logger.logWebSocket('Streamer Disconnected - Stream Ended & DB Updated', { streamId });
-            return; // Exit once the streamer is found and handled
-        }
-    }
+                        // Update database
+                        await mediasoupService.stopStreamInDB(streamId)
 
-    // 2. Check if the disconnected user was a VIEWER
-    for (const [streamId, viewers] of this.viewerConnections.entries()) {
-        if (viewers.has(socket.id)) {
-            viewers.delete(socket.id);
+                        // Clean up memory
+                        this.activeStreams.delete(streamId)
+                        this.streamPeers.delete(streamId)
+                        this.viewerConnections.delete(streamId)
 
-            // Remove viewer from the peers tracking map
-            const peers = this.streamPeers.get(streamId);
-            if (peers) {
-                for (const [userId, peerInfo] of peers.entries()) {
-                    if (peerInfo.socketId === socket.id) {
-                        peers.delete(userId);
-                        break;
+                        // Clean up mediasoup resources
+                        await mediasoupService.cleanupStream(streamId)
+
+                        return // Only one stream per streamer socket
                     }
                 }
-            }
 
-            // Update the streamer and remaining viewers with the new count
-            const currentCount = viewers.size;
-            this.io.to(streamId).emit('viewer-count-update', { count: currentCount });
+                // Check if disconnected user was a viewer
+                for (const [streamId, viewers] of this.viewerConnections.entries()) {
+                    if (viewers.has(socket.id)) {
+                        viewers.delete(socket.id)
 
-            logger.logWebSocket('Viewer Disconnected', {
-                streamId,
-                socketId: socket.id,
-                remainingViewers: currentCount
-            });
-            break;
-        }
+                        // Remove from peer tracking
+                        const peers = this.streamPeers.get(streamId)
+                        if (peers) {
+                            for (const [userId, peerInfo] of peers.entries()) {
+                                if (peerInfo.socketId === socket.id) {
+                                    peers.delete(userId)
+                                    break
+                                }
+                            }
+                        }
+
+                        const viewerCount = viewers.size
+
+                        // Broadcast updated count
+                        this.io.to(streamId).emit('viewer-count-update', { viewerCount })
+
+                        logger.logWebSocket('Viewer Disconnected', {
+                            streamId,
+                            socketId: socket.id,
+                            viewerCount
+                        })
+
+                        break // A socket can only be in one stream
+                    }
+                }
+            })
+        })
     }
-});
-        }) // End of connection event
-    }
+
+    // ─────────────────────────────────────────────
+    // PUBLIC HELPERS (used by HTTP controllers)
+    // ─────────────────────────────────────────────
 
     broadcastToStream(streamId, event, data) {
-        this.io.to(streamId).emit(event, data)
+        if (this.io) {
+            this.io.to(streamId).emit(event, data)
+        }
     }
 
-    // Get stream info
     getStreamInfo(streamId) {
-        return this.activeStreams.get(streamId)
+        return this.activeStreams.get(streamId) || null
     }
 
-    // Get viewer count for stream
     getViewerCount(streamId) {
         return this.viewerConnections.get(streamId)?.size || 0
     }
 
-    // Get all active streams
     getActiveStreams() {
         const streams = []
         for (const [streamId, streamInfo] of this.activeStreams.entries()) {
