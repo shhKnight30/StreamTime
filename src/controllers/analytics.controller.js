@@ -1,10 +1,9 @@
 import { VideoAnalytics } from "../models/videoAnalytics.models.js";
 import { UserAnalytics } from "../models/userAnalytics.models.js";
-import { LiveStreamAnalytics } from "../models/liveStreamAnalytics.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-
+import { LiveStreamAnalytics } from "../models/liveStreamAnalytics.models.js";
 
 const getVideoAnalytics = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
@@ -46,7 +45,7 @@ const getUserAnalytics = asyncHandler(async (req, res) => {
 const getLiveStreamAnalytics = asyncHandler(async (req, res) => {
     const { streamId } = req.params;
     
-    const analytics = await LiveStreamAnalystics.findOne({ stream: streamId })
+    const analytics = await LiveStreamAnalytics.findOne({ stream: streamId })
         .populate('stream', 'title startTime endTime');
     
     if (!analytics) {

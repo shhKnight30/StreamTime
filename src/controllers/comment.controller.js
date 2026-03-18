@@ -8,7 +8,15 @@ import { Playlist } from "../models/playlist.model.js";
 import { Tweet } from "../models/tweet.model.js";
 
 const addComment = asyncHandler(async (req , res ) =>{
-    const { content , parentContentType , parentContentId} = req.body
+    const { content , parentContentId} = req.body
+    
+    const parentContentType = req.body.parentContentType
+        ? req.body.parentContentType.charAt(0).toUpperCase() + req.body.parentContentType.slice(1).toLowerCase()
+        : null
+
+    if (!parentContentType) {
+        throw new ApiError(400, "parentContentType is required")
+    }
 
     let parentExists
     switch(parentContentType){
@@ -18,29 +26,43 @@ const addComment = asyncHandler(async (req , res ) =>{
         case 'Playlist':
             parentExists = await Playlist.findById(parentContentId)
             break
-        case 'Comment' :
-            parentExists= await Comment.findById(parentContentId)
+        case 'Comment':
+            parentExists = await Comment.findById(parentContentId)
             break
-        case 'Tweet' :
-            parentExists= await Tweet.findById(parentContentId)
+        case 'Tweet':
+            parentExists = await Tweet.findById(parentContentId)
             break
+        case 'Livestream':
+            const { LiveStream } = await import('../models/livestream.model.js')
+            parentExists = await LiveStream.findById(parentContentId)
+            break
+        default:
+            throw new ApiError(400, `Invalid parentContentType: ${parentContentType}`)
     }
+    
     if(!parentExists){
         throw new ApiError(404, `${parentContentType} not found`)
     }
+    
     const comment = await Comment.create({
         content : content.trim(),
         parentContentType,
         parentContentId,
         user : req.user?._id
     })
+    
     return res.status(201).json(
         new ApiResponse(201, comment , "Comment added successfully")
     )
 })
 
 const getComments = asyncHandler(async (req , res)=>{
-    const {parentContentType , parentContentId , page=1 ,limit =10}= req.query 
+    let {parentContentType , parentContentId , page=1 ,limit =10}= req.query 
+
+
+    parentContentType = parentContentType
+        ? parentContentType.charAt(0).toUpperCase() + parentContentType.slice(1).toLowerCase()
+        : null
     const comments = await Comment.find({
         parentContentId,
         parentContentType,

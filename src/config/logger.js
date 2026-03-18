@@ -103,19 +103,19 @@ const logger = winston.createLogger({
     ],
     
     // Handle exceptions and rejections
-    exceptionHandlers: [
-        new winston.transports.File({ 
-            filename: 'logs/exceptions.log',
-            format: productionFormat
-        })
-    ],
+    // exceptionHandlers: [
+    //     new winston.transports.File({ 
+    //         filename: 'logs/exceptions.log',
+    //         format: productionFormat
+    //     })
+    // ],
     
-    rejectionHandlers: [
-        new winston.transports.File({ 
-            filename: 'logs/rejections.log',
-            format: productionFormat
-        })
-    ],
+    // rejectionHandlers: [
+    //     new winston.transports.File({ 
+    //         filename: 'logs/rejections.log',
+    //         format: productionFormat
+    //     })
+    // ],
     
     // Exit on error for production
     exitOnError: false
@@ -167,5 +167,11 @@ logger.logWebSocket = (event, data, socketId = null) => {
     
     logger.info('WebSocket Event', logData);
 };
+process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception:', { message: error.message, stack: error.stack });
+});
 
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', { promise, reason });
+});
 export default logger;
