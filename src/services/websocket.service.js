@@ -223,28 +223,19 @@ class WebSocketService {
             // ===== MEDIASOUP SFU EVENTS =====
 
             // Create WebRTC transport for client
-            socket.on('create-transport', async (data) => {
+            socket.on('connect-transport', async (data) => {
                 try {
-                    const { streamId, direction } = data;
-                    const transportData = await mediasoupService.createTransport(streamId, socket.id, direction);
+                    const { transportId, dtlsParameters } = data;
+                    const transportData = mediasoupService.transports.get(transportId);
+                    
+                    if (!transportData) throw new Error("Transport not found");
 
-                    socket.emit('transport-created', {
-                        transport: transportData,
-                        streamId
-                    });
-
-                    logger.logWebSocket('Transport Created', {
-                        streamId,
-                        transportId: transportData.id,
-                        direction,
-                        socketId: socket.id
-                    });
+                    await transportData.transport.connect({ dtlsParameters });
+                    
+                    socket.emit('transport-connected', { transportId });
+                    logger.logWebSocket('Transport Connected (DTLS)', { transportId });
                 } catch (error) {
-                    logger.error('Failed to create transport', { error: error.message, socketId: socket.id });
-                    socket.emit('transport-error', {
-                        error: error.message,
-                        streamId: data.streamId
-                    });
+                    logger.error('Failed to connect transport', { error: error.message });
                 }
             });
 

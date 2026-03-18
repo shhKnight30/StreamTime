@@ -1,6 +1,7 @@
 import mongoose,{Schema} from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
-import  "./user.models.js";
+// import  "./user.models.js";
+// import "./video.models.js";
 const commentSchema = new Schema({
     content : {
         type : String,

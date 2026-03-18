@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import logger from '../config/logger.js';
+import fsOriginal from 'fs'
 
 export const uploadOnS3 = async (localFilePath, folder = 'uploads') => {
     try {
@@ -12,8 +13,7 @@ export const uploadOnS3 = async (localFilePath, folder = 'uploads') => {
         }
 
         // Read the file
-        const fileBuffer = await fs.readFile(localFilePath);
-        
+            
         // Generate unique key
         const ext = path.extname(localFilePath);
         const key = `${folder}/${uuidv4()}${ext}`;
@@ -22,7 +22,8 @@ export const uploadOnS3 = async (localFilePath, folder = 'uploads') => {
         const contentType = getContentType(ext);
         
         // Upload to S3
-        const url = await uploadToS3(fileBuffer, key, contentType);
+        const fileStream = fsOriginal.createReadStream(localFilePath);
+        const url = await uploadToS3(fileStream, key, contentType);
         
         // Clean up local file
         await fs.unlink(localFilePath);

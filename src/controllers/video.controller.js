@@ -7,56 +7,27 @@ import { uploadOnS3, deleteFromS3ByKey } from "../utils/aws-s3.js";
 import { generateThumbnail, getVideoDuration } from "../utils/thumbnailGenerator.js";
 import fs from 'fs/promises';
 // import { addToWatchHistory } from "./user.controller.js"
+import { Subscription } from "../models/subscriptions.models.js";
 import { addToWatchHistory } from "../utils/watchHistory.js"
 import { VideoAnalytics } from "../models/videoAnalytics.models.js";
 const uploadVideo = asyncHandler(async(req,res)=>{
-    const {title,description,visibility,tags,category} = req.body
+    const {title,description,visibility,tags,category} = req.body;
     if (!title?.trim()) {
-    throw new ApiError(400, "Title is required");
+        throw new ApiError(400, "Title is required");
     } 
-    const VideoDescription  = description|| 'Video From StreamTime'
-    const videoVisibility = visibility || 'public';
-    const VideoCategory = category||'entertainment'
     
-    const videoFile = req.files?.videoFile[0]?.path
-    const fileSize = req.files?.videoFile[0]?.size;
-    logger.debug('Video file path:', videoFile);
-    logger.debug('Video file size:', (fileSize / 1024 / 1024).toFixed(2), "MB");
-    // Add validation
-    if (fileSize > 100 * 1024 * 1024) {
-        throw new ApiError(413, "Video file too large. Maximum size is 100MB. Your file is " + (fileSize / 1024 / 1024).toFixed(2) + "MB");
-    }
-    const uploadedVideoResult = await uploadOnS3(videoFile, 'videos');
-    if (!uploadedVideoResult || !uploadedVideoResult.url) {
-        logger.error('S3 response:', uploadedVideoResult);
-        throw new ApiError(500, "Failed to upload video");
-    }
-    logger.debug('S3 response:', uploadedVideoResult.url)
-    let thumbnailUrl;
+    const videoFile = req.files?.videoFile[0]?.path;
     const thumbnailFile = req.files?.thumbnail?.[0]?.path;
+    const fileSize = req.files?.videoFile[0]?.size;
 
-    if (thumbnailFile) {
-        // User provided thumbnail
-        logger.debug('Using user-provided thumbnail');
-        const uploadedThumbnailResult = await uploadOnS3(thumbnailFile, 'thumbnails');
-        thumbnailUrl = uploadedThumbnailResult.url;
-    } else {
-        // Generate thumbnail from video
-        logger.debug('Generating thumbnail from video');
-        try {
-            const thumbnailPath = await generateThumbnail(videoFile);
-            const uploadedThumbnailResult = await uploadOnS3(thumbnailPath, 'thumbnails');
-            thumbnailUrl = uploadedThumbnailResult.url;
-            
-            // Clean up generated thumbnail
-            await fs.unlink(thumbnailPath);
-        } catch (error) {
-            logger.error('Failed to generate thumbnail:', error);
-            thumbnailUrl = ""; // Use empty thumbnail as fallback
-        }
+    // 1. Check file sizes
+    if (fileSize > 200 * 1024 * 1024) {
+        if (videoFile) await fs.unlink(videoFile).catch(() => {});
+        if (thumbnailFile) await fs.unlink(thumbnailFile).catch(() => {});
+        throw new ApiError(413, "Video file too large. Maximum size is 100MB.");
     }
 
-    // Get video duration
+    // ✅ 2. Extract Duration BEFORE uploading (while local file still exists)
     let duration = 0;
     try {
         duration = Math.round(await getVideoDuration(videoFile));
@@ -64,31 +35,62 @@ const uploadVideo = asyncHandler(async(req,res)=>{
         logger.error('Failed to get video duration:', error);
     }
 
+    // ✅ 3. Generate Thumbnail BEFORE uploading (while local file still exists)
+    let finalThumbnailPath = thumbnailFile;
+    let generatedThumbnailPath = null;
+
+    if (!finalThumbnailPath) {
+        try {
+            generatedThumbnailPath = await generateThumbnail(videoFile);
+            finalThumbnailPath = generatedThumbnailPath;
+        } catch (error) {
+            logger.error('Failed to generate thumbnail:', error);
+            throw new ApiError(500, "Failed to process video thumbnail");
+        }
+    }
+
+    // ✅ 4. NOW upload the video to S3 (This deletes the local video file)
+    const uploadedVideoResult = await uploadOnS3(videoFile, 'videos');
+    if (!uploadedVideoResult || !uploadedVideoResult.url) {
+        // Clean up the generated thumbnail if video upload fails
+        if (generatedThumbnailPath) await fs.unlink(generatedThumbnailPath).catch(() => {});
+        throw new ApiError(500, "Failed to upload video");
+    }
+
+    // ✅ 5. Upload the Thumbnail to S3 (This deletes the local thumbnail file)
+    let thumbnailUrl = "";
+    if (finalThumbnailPath) {
+        const uploadedThumbnailResult = await uploadOnS3(finalThumbnailPath, 'thumbnails');
+        thumbnailUrl = uploadedThumbnailResult?.url || "";
+    }
+
+    // 6. Save to Database
     const video = await Video.create({
         videoURL : uploadedVideoResult.url,
         title,
-        thumbnail:thumbnailUrl,
-        description : VideoDescription,
+        thumbnail: thumbnailUrl,
+        description : description || 'Video From StreamTime',
         duration : duration,
-        visibility: videoVisibility,
-        tags:tags?.split(',').map(tag=> tag.trim()).filter(tag=>tag),
-        category: VideoCategory,
+        visibility: visibility || 'public',
+        tags: tags?.split(',').map(tag=> tag.trim()).filter(tag=>tag),
+        category: category || 'entertainment',
         ownerName : req.user.fullname,
         ownerUsername : req.user.username,
         ownerAvatar : req.user.avatar,
         owner : req.user._id
-    }) 
+    });
 
-    await VideoAnalytics.create({ video: video._id }).catch(() => {})
-    return res.status(201).json(
-        new ApiResponse(201,video,"Video uploaded successfully")
-    )
-})
-
+    await VideoAnalytics.create({ video: video._id }).catch(() => {});
+    return res.status(201).json(new ApiResponse(201, video, "Video uploaded successfully"));
+});
 const getAllVideos = asyncHandler(async (req,res)=>{
-    const {page = 1,limit = 10, category ,tags} = req.query
+    const {page = 1,limit = 10, category ,tags, feed} = req.query;
     let query = { visibility :'public', isPublished : true};
-
+    if (feed === 'subscribed' && req.user) {
+        const subscriptions = await Subscription.find({ subscriber: req.user._id });
+        const subscribedChannelIds = subscriptions.map(sub => sub.channel);
+        query.owner = { $in: subscribedChannelIds };
+    }
     if(category){
         query.category = category
     }
@@ -120,14 +122,17 @@ const getAllVideos = asyncHandler(async (req,res)=>{
 
 const getVideoById = asyncHandler(async (req, res) =>{
     const {videoId} = req.params
-    const video = await Video.findById(videoId)
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        { $inc: { views: 1 } },
+        { new: true }
+    );
     if(!video){
         throw new ApiError(404, "Video not found")
     }
     if(video.visibility==='private' && video.owner.toString() !==req.user?._id.toString()){
         throw new ApiError(403, "Access denied")
     }
-    video.views +=1
     await video.save()
     if (req.user?._id) {
         await addToWatchHistory(req.user._id, videoId)

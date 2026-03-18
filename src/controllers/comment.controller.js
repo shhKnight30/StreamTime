@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Comment } from "../models/comment.models.js";
 import { Video } from "../models/video.models.js";
-// import { User } from "../models/user.models.js";
+import { User } from "../models/user.models.js";
 import { Playlist } from "../models/playlist.model.js";
 import { Tweet } from "../models/tweet.model.js";
 
