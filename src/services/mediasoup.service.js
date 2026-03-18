@@ -2,6 +2,7 @@ import * as mediasoup from 'mediasoup';
 import os from 'os';
 import logger from '../config/logger.js';
 import { ApiError } from '../utils/ApiError.js';
+import { LiveStream } from '../models/livestream.model.js';
 
 class MediasoupService {
     constructor() {
@@ -254,7 +255,32 @@ class MediasoupService {
             type: consumer.type
         };
     }
+    async startStreamInDB(streamId) {
+    try {
+        // Extract the actual MongoDB ID from your "stream_ID" string
+        const mongoId = streamId.replace('stream_', '');
+        await LiveStream.findByIdAndUpdate(mongoId, {
+            isLive: true,
+            startedAt: new Date()
+        });
+        console.log(`Stream ${streamId} is now LIVE in DB`);
+    } catch (error) {
+        console.error('DB Start Stream Error:', error);
+    }
+}
 
+async stopStreamInDB(streamId) {
+    try {
+        const mongoId = streamId.replace('stream_', '');
+        await Livestream.findByIdAndUpdate(mongoId, {
+            isLive: false,
+            endedAt: new Date()
+        });
+        console.log(`Stream ${streamId} has ENDED in DB`);
+    } catch (error) {
+        console.error('DB Stop Stream Error:', error);
+    }
+}
     /**
      * Get router RTP capabilities for client
      */
