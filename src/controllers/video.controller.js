@@ -142,7 +142,7 @@ const getVideoById = asyncHandler(async (req, res) =>{
 
 const updateVideo = asyncHandler(async (req, res)=> {
     const {videoId} = req.params
-    const {title , description, visibility , tags ,category} = req.body
+    const {title , description, visibility , tags ,category,isPublished} = req.body
     const video= await Video.findById(videoId)
     if(!video)throw new ApiError(404 , "video not found")
     if(video.owner.toString()!== req.user?._id.toString()){
@@ -153,7 +153,7 @@ const updateVideo = asyncHandler(async (req, res)=> {
     if(visibility)video.visibility = visibility
     if (tags) video.tags = tags.split(',').map(tag => tag.trim());
     if(category)video.category = category
-
+    if (isPublished !== undefined) video.isPublished = Boolean(isPublished)
     await video.save()
     return res.status(200).json(new ApiResponse(200, video, "Video Details Successfully updated "))
     

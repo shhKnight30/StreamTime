@@ -23,7 +23,26 @@ this.io = new Server(server, {
     },
     transports: ["websocket", "polling"],
 })
+ this.io.use(async (socket, next) => {
+        try {
+            // Extract token from cookie header
+            const cookieHeader = socket.handshake.headers?.cookie || ''
+            const tokenMatch = cookieHeader.match(/accessToken=([^;]+)/)
+            const token = tokenMatch?.[1] || socket.handshake.auth?.token
 
+            if (!token) {
+                socket.data.user = null
+                return next()  // allow anonymous viewers
+            }
+
+            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+            socket.data.user = await User.findById(decoded._id).select('-password -refreshToken')
+            next()
+        } catch (error) {
+            socket.data.user = null
+            next()  // allow unauthenticated viewers (read-only)
+        }
+    })
         this.io.on('connection', (socket) => {
             logger.logWebSocket('User Connected', { socketId: socket.id })
 
@@ -114,7 +133,9 @@ this.io = new Server(server, {
                         totalViewers: currentViewerCount
                     })
 
-                    this.io.to(streamId).emit('viewer-count-update', { currentViewerCount })
+                    this.io.to(streamId).emit('viewer-count-update', { 
+                        count: this.viewerConnections.get(streamId)?.size || 0 
+                    })
                     
                     const streamerSocketId = streamInfo.streamerSocketId
                     this.io.to(streamerSocketId).emit('viewer-joined', {

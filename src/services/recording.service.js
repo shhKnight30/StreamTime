@@ -1,29 +1,31 @@
+// src/services/recording.service.js
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import logger from '../config/logger.js';
 import mediasoupService from './mediasoup.service.js';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';  // ← ADD THIS
+
+const FFMPEG_PATH = ffmpegInstaller.path;  // ← points to node_modules binary
 
 class RecordingService {
     constructor() {
         this.activeRecordings = new Map();
-        this.portCounter = 20000; // Starting port for FFmpeg UDP listeners
+        this.portCounter = 20000;
         
-        // Ensure recordings directory exists
         this.recordingsDir = path.join(process.cwd(), 'recordings');
         if (!fs.existsSync(this.recordingsDir)) {
             fs.mkdirSync(this.recordingsDir, { recursive: true });
         }
+        
+        logger.info(`FFmpeg path: ${FFMPEG_PATH}`);  // verify on startup
     }
 
     getAvailablePort() {
-        this.portCounter += 2; // Increment by 2 (one for RTP, one for RTCP)
+        this.portCounter += 2;
         return this.portCounter;
     }
 
-    /**
-     * Generates a dynamic SDP string for FFmpeg to know what codecs to expect
-     */
     generateSDP(videoPort, audioPort) {
         return `v=0
 o=- 0 0 IN IP4 127.0.0.1
@@ -39,25 +41,26 @@ a=rtpmap:111 OPUS/48000/2`;
     async startRecording(streamId) {
         try {
             if (this.activeRecordings.has(streamId)) {
-                throw new Error("Recording already in progress for this stream");
+                logger.warn(`Recording already in progress for stream ${streamId}, skipping`);
+                return;  // ← changed from throw to warn+return (non-fatal)
             }
 
-            // 1. Get the video and audio producers for this stream
             const producers = mediasoupService.getStreamProducers(streamId);
             const videoProducer = producers.find(p => p.kind === 'video');
             const audioProducer = producers.find(p => p.kind === 'audio');
 
-            if (!videoProducer) throw new Error("No video producer found to record");
+            if (!videoProducer) {
+                logger.warn(`No video producer found for stream ${streamId}, skipping recording`);
+                return;
+            }
 
-            // 2. Setup Ports & SDP
             const videoPort = this.getAvailablePort();
             const audioPort = audioProducer ? this.getAvailablePort() : null;
-            
+
             const sdpString = this.generateSDP(videoPort, audioPort || 0);
             const sdpPath = path.join(this.recordingsDir, `${streamId}.sdp`);
             fs.writeFileSync(sdpPath, sdpString);
 
-            // 3. Create PlainTransports & Consumers
             const videoTransport = await mediasoupService.createPlainTransport(streamId);
             await mediasoupService.startRecordingConsumer(streamId, videoTransport, videoProducer.id, videoPort);
 
@@ -67,33 +70,39 @@ a=rtpmap:111 OPUS/48000/2`;
                 await mediasoupService.startRecordingConsumer(streamId, audioTransport, audioProducer.id, audioPort);
             }
 
-            // 4. Build FFmpeg Command
-            const outputPath = path.join(this.recordingsDir, `${streamId}_${Date.now()}.mp4`);
-            
+            const outputPath = path.join(
+                this.recordingsDir,
+                `${streamId}_${Date.now()}.mp4`
+            );
+
             const ffmpegArgs = [
                 '-protocol_whitelist', 'file,udp,rtp',
                 '-i', sdpPath,
-                '-c:v', 'copy',      // Copy video codec directly (VP8/H264)
-                '-c:a', 'aac',       // Convert Opus to AAC for mp4 compatibility
+                '-c:v', 'copy',
+                '-c:a', 'aac',
                 '-strict', '-2',
-                '-y',                // Overwrite output
+                '-y',
                 outputPath
             ];
 
-            // 5. Spawn FFmpeg
-            const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
+            // ← Use FFMPEG_PATH instead of bare 'ffmpeg'
+            const ffmpegProcess = spawn(FFMPEG_PATH, ffmpegArgs);
 
             ffmpegProcess.stderr.on('data', (data) => {
-                // FFmpeg logs to stderr natively. Uncomment to debug FFmpeg issues:
-                // console.log(`FFMPEG: ${data.toString()}`);
+                logger.debug(`FFmpeg [${streamId}]: ${data.toString().trim()}`);
+            });
+
+            ffmpegProcess.on('error', (err) => {
+                logger.error(`FFmpeg process error for stream ${streamId}:`, err.message);
+                this.activeRecordings.delete(streamId);
             });
 
             ffmpegProcess.on('close', (code) => {
-                logger.info(`FFmpeg process closed with code ${code} for stream ${streamId}`);
-                // Here you would trigger an AWS S3 upload of the completed `outputPath`
+                logger.info(`FFmpeg closed (code ${code}) for stream ${streamId} → ${outputPath}`);
+                // TODO: upload outputPath to S3 here
+                this.activeRecordings.delete(streamId);
             });
 
-            // 6. Save recording state
             this.activeRecordings.set(streamId, {
                 process: ffmpegProcess,
                 videoTransport,
@@ -102,10 +111,11 @@ a=rtpmap:111 OPUS/48000/2`;
                 outputPath
             });
 
-            logger.info(`Started recording stream ${streamId} to ${outputPath}`);
+            logger.info(`Started recording stream ${streamId} → ${outputPath}`);
 
         } catch (error) {
-            logger.error(`Recording failed: ${error.message}`);
+            logger.error(`Recording failed for ${streamId}: ${error.message}`);
+            // Don't rethrow — recording failure should never crash the stream
         }
     }
 
@@ -113,14 +123,11 @@ a=rtpmap:111 OPUS/48000/2`;
         const recording = this.activeRecordings.get(streamId);
         if (!recording) return;
 
-        // Kill FFmpeg gracefully
         recording.process.kill('SIGINT');
 
-        // Close Mediasoup Transports
-        recording.videoTransport.close();
+        recording.videoTransport?.close();
         if (recording.audioTransport) recording.audioTransport.close();
 
-        // Cleanup SDP file
         if (fs.existsSync(recording.sdpPath)) {
             fs.unlinkSync(recording.sdpPath);
         }
