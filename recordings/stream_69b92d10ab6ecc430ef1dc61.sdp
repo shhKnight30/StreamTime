@@ -1,0 +1,9 @@
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=Mediasoup Recording
+c=IN IP4 127.0.0.1
+t=0 0
+m=video 20002 RTP/AVP 100
+a=rtpmap:100 VP8/90000
+m=audio 20004 RTP/AVP 111
+a=rtpmap:111 OPUS/48000/2

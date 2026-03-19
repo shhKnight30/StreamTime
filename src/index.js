@@ -23,7 +23,7 @@ connectDB()
         logger.info('WebSocket service initialized')
 
         // 3. Start listening LAST
-        server.listen(process.env.PORT || 3000, () => {
+        server.listen(process.env.PORT|| 3000, () => {
             logger.info(`Server running on port ${process.env.PORT || 3000}`)
         })
 
