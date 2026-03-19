@@ -39,14 +39,7 @@ app.use(express.urlencoded({extended:true,limit:'4kb'}))
 app.use(express.static('public'))
 app.use(cookieParser())
 
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,   // 20 attempts per 15 minutes
-    message: { success: false, message: 'Too many login attempts. Try again in 15 minutes.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true,  // only count failed attempts
-})
+
 app.get('/health', (req, res) => {
     const healthStatus = {
         status: 'OK',
@@ -84,7 +77,7 @@ import liveStreamRouter from './routes/liveStream.routes.js';
 import analyticsRouter from './routes/analytics.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
 
-app.use('/api/v1/users',authLimiter,userRouter)
+app.use('/api/v1/users',userRouter)
 app.use('/api/v1/videos',videoRouter)
 app.use('/api/v1/subscriptions', subscriptionRouter)
 app.use('/api/v1/playlists', playlistRouter)

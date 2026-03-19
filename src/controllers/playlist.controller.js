@@ -40,7 +40,7 @@ const getAllPlaylists = asyncHandler(async (req, res)=>{
     .sort({createdAt :-1})
     .limit(limit *1)
     .skip((page -1)*limit)
-
+    .lean()
     const total = await Playlist.countDocuments(query)
 
     return res.status(200).json(

@@ -10,7 +10,7 @@ import {
     searchVideos
 } from "../controllers/video.controller.js"
 import { upload } from "../middlewares/multer.middleware.js";
-
+import { validateVideoUpload } from "../middlewares/validate.middleware.js";
 const router = Router()
 
 /**
@@ -113,6 +113,7 @@ router.post("/upload",
         {name : "videoFile",  maxcount: 1},
         {name : "thumbnail", maxcount : 1}
     ]),
+    validateVideoUpload,
     uploadVideo
 );
 

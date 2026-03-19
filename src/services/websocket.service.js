@@ -36,7 +36,9 @@ this.io = new Server(server, {
             }
 
             const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-            socket.data.user = await User.findById(decoded._id).select('-password -refreshToken')
+            socket.data.user = await User.findById(decoded._id)
+            .select('-password -refreshToken')
+            .lean()
             next()
         } catch (error) {
             socket.data.user = null

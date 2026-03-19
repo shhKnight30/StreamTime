@@ -77,13 +77,27 @@ const registerUser = asyncHandler(async (req, res) => {
     if (!createdUser) {
         throw new ApiError(500, "something went wrong while registering the user")
     }
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
+
+    const { accessToken } = await generateAccessAndRefreshTokens(user._id)
     logger.debug('Request keys:', Object.keys(req));
     logger.debug('Request body:', req.body);
     logger.debug('Request file:', req.file);
     logger.debug('Request files:', req.files);
-    return res.status(201).json(
-        new ApiResponse(200, { user: createdUser, accessToken, refreshToken }, "user registered successfully")
+
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
+    || process.env.FORCE_SECURE_COOKIES === 'true'
+
+    const options = {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: isSecure ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    }
+    return res.status(201)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(200, { user: createdUser, accessToken }, "user registered successfully")
     )
 })
 
@@ -98,8 +112,11 @@ const loginUser = asyncHandler(async (req, res) => {
 // 
     const { email, password } = req.body
     if (!email) {
-        throw new ApiError(400, "missingemail");
-    }
+    throw new ApiError(400, "Email is required");
+}
+if (!password) {
+    throw new ApiError(400, "Password is required");
+}
 
     const user = await User.findOne({ email })
     if (!user) {

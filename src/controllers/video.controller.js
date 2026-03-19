@@ -10,6 +10,8 @@ import fs from 'fs/promises';
 import { Subscription } from "../models/subscriptions.models.js";
 import { addToWatchHistory } from "../utils/watchHistory.js"
 import { VideoAnalytics } from "../models/videoAnalytics.models.js";
+import { withCache,invalidateCache } from "../utils/cache.js";
+
 const uploadVideo = asyncHandler(async(req,res)=>{
     const {title,description,visibility,tags,category} = req.body;
     if (!title?.trim()) {
@@ -86,7 +88,10 @@ const uploadVideo = asyncHandler(async(req,res)=>{
 const getAllVideos = asyncHandler(async (req,res)=>{
     const {page = 1,limit = 10, category ,tags, feed} = req.query;
     let query = { visibility :'public', isPublished : true};
+
+    
     if (feed === 'subscribed' && req.user) {
+
         const subscriptions = await Subscription.find({ subscriber: req.user._id });
         const subscribedChannelIds = subscriptions.map(sub => sub.channel);
         query.owner = { $in: subscribedChannelIds };

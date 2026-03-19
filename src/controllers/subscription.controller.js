@@ -80,6 +80,7 @@ const getUserSubscriptions = asyncHandler(async (req, res)=>{
     .limit(limit*1)
     .skip((page-1)*limit)
     .sort({createdAt:-1})
+    .lean()
     const total = await Subscription.countDocuments({subscriber: req.user?._id})
 
     return res.status(200).json(

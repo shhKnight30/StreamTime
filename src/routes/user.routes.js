@@ -2,6 +2,7 @@ import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { changeCurrentPassword, getCurrentUser, loginUser, logoutUser, refreshAccessToken, registerUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage,getUserChannelProfile,getWatchHistory,clearWatchHistory } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"; 
+import { validateRegister } from "../middlewares/validate.middleware.js";
 /**
  * @swagger
  * /api/v1/users/register:
@@ -356,6 +357,15 @@ import { upload } from "../middlewares/multer.middleware.js";
  *       401:
  *         description: Unauthorized
  */
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,   // 15 minutes
+    max: 20,
+    message: { success: false, message: 'Too many attempts. Try again in 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+})
+
 const router = Router()
 router.route("/register").post(
     upload.fields([{
@@ -364,11 +374,12 @@ router.route("/register").post(
     },{
         name:"coverImage",
         maxCount:1
-    }])
-
+    }]),
+    authLimiter,
+    validateRegister
     ,registerUser)
 // router.route("/register").post(upload.single({name:"avatar",maxcount:1}),registerUser)
-router.route("/login").post(loginUser)
+router.route("/login").post(authLimiter,loginUser)
 router.route("/logout").post(verifyJWT,logoutUser)
 router.route("/refresh-token").post(refreshAccessToken)
 router.route("/current-user").get(verifyJWT,getCurrentUser)
