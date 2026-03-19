@@ -24,9 +24,18 @@ app.use(cors({
     
 }))
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },  // allow S3 images
-    contentSecurityPolicy: false  // configure separately if needed
-}))
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https://*.amazonaws.com", "https://api.dicebear.com"],
+            mediaSrc: ["'self'", "https://*.amazonaws.com"],
+            connectSrc: ["'self'", process.env.CORS_ORIGIN, "wss:"],
+        }
+    }
+}));
 
 app.use((req, res, next) => {
     res.setHeader('ngrok-skip-browser-warning', 'true')
@@ -40,18 +49,19 @@ app.use(express.static('public'))
 app.use(cookieParser())
 
 
-app.get('/health', (req, res) => {
-    const healthStatus = {
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        environment: process.env.NODE_ENV || 'development'
-    };
+app.get('/health', async (req, res) => {
+    const dbHealth = await dbManager.healthCheck();
+    const mediasoupHealth = mediasoupService.workers.length > 0 ? 'healthy' : 'unhealthy';
     
-    res.status(200).json(healthStatus);
+    const status = dbHealth.status === 'healthy' && mediasoupHealth === 'healthy' ? 200 : 503;
+    res.status(status).json({
+        status: status === 200 ? 'OK' : 'DEGRADED',
+        db: dbHealth,
+        mediasoup: mediasoupHealth,
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 });
-
 // app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 import { User } from './models/user.models.js';

@@ -20,5 +20,14 @@ export const validateEnv = () => {
         missing.forEach(key => console.error(`   - ${key}`))
         process.exit(1)
     }
+
+    if (process.env.ACCESS_TOKEN_SECRET.length < 32) {
+        console.error('ACCESS_TOKEN_SECRET must be at least 32 characters');
+        process.exit(1);
+    }
+    if (process.env.REFRESH_TOKEN_SECRET.length < 32) {
+        console.error('REFRESH_TOKEN_SECRET must be at least 32 characters');
+        process.exit(1);
+    }
     console.debug('----------------------- Environment validated--------------------')
 }

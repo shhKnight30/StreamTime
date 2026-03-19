@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import logger from '../config/logger.js';
 import { ApiError } from '../utils/ApiError.js'   // ← ADD THIS
-
+import { fileTypeFromBuffer } from 'file-type';
 const uploadDir = './public/temp'
 if (!fs.existsSync(uploadDir)) {
     logger.info('Creating upload directory:', uploadDir);
@@ -35,5 +35,12 @@ export const upload = multer({
         cb(null, true)
     }
 })
-
+const validateFileType = async (filePath, allowedMimes) => {
+    const { fileTypeFromFile } = await import('file-type');
+    const type = await fileTypeFromFile(filePath);
+    if (!type || !allowedMimes.some(m => m.includes(type.mime.split('/')[1]))) {
+        await fs.unlink(filePath);
+        throw new ApiError(400, "File content does not match declared type");
+    }
+};
 export { storage }

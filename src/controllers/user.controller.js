@@ -78,7 +78,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "something went wrong while registering the user")
     }
 
-    const { accessToken } = await generateAccessAndRefreshTokens(user._id)
+    const { accessToken,refreshToken } = await generateAccessAndRefreshTokens(user._id)
     logger.debug('Request keys:', Object.keys(req));
     logger.debug('Request body:', req.body);
     logger.debug('Request file:', req.file);
@@ -422,14 +422,19 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 })
 
 const getWatchHistory = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20 } = req.query
+    const { page = 1, limit = 20 ,before} = req.query
     const skip = (page - 1) * limit
 
     const user = await User.findById(req.user._id).select('watchHistory')
     if (!user) throw new ApiError(404, "User not found")
-
-    const total = user.watchHistory.length
-
+        
+        const total = user.watchHistory.length
+        
+        let ids = user.watchHistory;
+        if (before) {
+            const idx = ids.findIndex(id => id.toString() === before);
+            if (idx !== -1) ids = ids.slice(idx + 1);
+        }
     // Slice the watchHistory array first, then populate
     const slicedIds = user.watchHistory
         .slice(skip, skip + Number(limit))

@@ -89,7 +89,7 @@ const getAllVideos = asyncHandler(async (req,res)=>{
     const {page = 1,limit = 10, category ,tags, feed} = req.query;
     let query = { visibility :'public', isPublished : true};
 
-    
+
     if (feed === 'subscribed' && req.user) {
 
         const subscriptions = await Subscription.find({ subscriber: req.user._id });
@@ -126,24 +126,21 @@ const getAllVideos = asyncHandler(async (req,res)=>{
     )
 })
 
-const getVideoById = asyncHandler(async (req, res) =>{
-    const {videoId} = req.params
-    const video = await Video.findByIdAndUpdate(
-        videoId,
-        { $inc: { views: 1 } },
-        { new: true }
-    );
-    if(!video){
-        throw new ApiError(404, "Video not found")
+// video.controller.js — getVideoById
+const getVideoById = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+    
+    // Remove $inc — let ViewTracker handle it with proper deduplication
+    const video = await Video.findById(videoId);
+    if (!video) throw new ApiError(404, "Video not found");
+    
+    if (video.visibility === 'private' && video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, "Access denied");
     }
-    if(video.visibility==='private' && video.owner.toString() !==req.user?._id.toString()){
-        throw new ApiError(403, "Access denied")
-    }
-    if (req.user?._id) {
-        await addToWatchHistory(req.user._id, videoId)
-    }
-    return res.status(200).json(new ApiResponse(200,video,"Video fetched successfully"))
-})
+    if (req.user?._id) await addToWatchHistory(req.user._id, videoId);
+    
+    return res.status(200).json(new ApiResponse(200, video, "Video fetched successfully"));
+});
 
 const updateVideo = asyncHandler(async (req, res)=> {
     const {videoId} = req.params
@@ -220,6 +217,8 @@ const searchVideos = asyncHandler(async (req,res) =>{
             {ownerName : {$regex : q , $options :'i'}},
             {ownerUsername : {$regex : q , $options : 'i'}}
         ]
+        query.$text = { $search: q }; // Use text index instead of multiple $regex
+        sortStage = { score: { $meta: 'textScore' }, ...sortStage };
     }
     if(category){
         query.category = category

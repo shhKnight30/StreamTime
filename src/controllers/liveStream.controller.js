@@ -6,7 +6,7 @@ import { ApiResponse } from '../utils/ApiResponse.js'
 import websocketServices from '../services/websocket.service.js'
 // import webrtcService from '../services/webrtc.service.js'
 import mediasoupService from '../services/mediasoup.service.js'
-
+import recordingService from '../services/recording.service.js'
 const createLiveStream = asyncHandler(async (req , res) =>{
     const {title , description , category = 'other' , tags=[], visibility= 'public'} = req.body
 
@@ -139,31 +139,31 @@ const startLiveStream = asyncHandler(async (req, res) =>{
     )
 })
 
-const stopLiveStream = asyncHandler(async (req, res)=>{
-    const {streamId} = req.params
-    const stream= await LiveStream.findById(streamId)
-    if(!stream) {
-        throw new ApiError(404, "Live stream not found")
-    }
-       if (stream.streamer.toString() !== req.user._id.toString()) {
+const stopLiveStream = asyncHandler(async (req, res) => {
+    const { streamId } = req.params;
+    const stream = await LiveStream.findById(streamId);
+    if (!stream) throw new ApiError(404, "Live stream not found");
+    if (stream.streamer.toString() !== req.user._id.toString())
         throw new ApiError(403, "Cannot stop other user's stream");
-    }
-    stream.isLive= false
-    stream.endTime = new Date()
-    if(stream.startTime){
-        stream.duration = Math.floor((stream.endTime-stream.startTime)/1000)
-    }
-    await stream.save()
-    websocketServices.broadcastToStream(stream.roomId,'stream-stopped',{
-        streamId:stream._id,
-        duration : stream.duration
-    })
 
-    return res.status(200).json(
-        new ApiResponse(200,stream,"Live stream stopped successfully")
-    )
-})
+    stream.isLive = false;
+    stream.endTime = new Date();
+    if (stream.startTime) {
+        stream.duration = Math.floor((stream.endTime - stream.startTime) / 1000);
+    }
+    await stream.save();
 
+    // ← ADD THESE
+    recordingService.stopRecording(`stream_${stream._id}`);
+    await mediasoupService.cleanupStream(`stream_${stream._id}`);
+
+    websocketServices.broadcastToStream(stream.roomId, 'stream-stopped', {
+        streamId: stream._id,
+        duration: stream.duration
+    });
+
+    return res.status(200).json(new ApiResponse(200, stream, "Live stream stopped successfully"));
+});
 // ===== WEBRTC SPECIFIC CONTROLLERS =====
 
 /**

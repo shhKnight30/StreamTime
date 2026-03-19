@@ -4,7 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { LiveStreamAnalytics } from "../models/liveStreamAnalytics.models.js";
-
+import { redis } from "../utils/cache.js";
 const getVideoAnalytics = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
 
@@ -58,23 +58,33 @@ const getLiveStreamAnalytics = asyncHandler(async (req, res) => {
 });
 
 // Update Video Views
+// analytics.controller.js — updateVideoViews (add IP/user deduplication)
 const updateVideoViews = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
+    const viewerId = req.user?._id?.toString() || req.ip;
     
-    let analytics = await VideoAnalytics.findOne({ video: videoId });
-    
-    if (!analytics) {
-        analytics = await VideoAnalytics.create({
-            video: videoId,
-            views: 1
-        });
-    } else {
-        analytics.views += 1;
-        await analytics.save();
+    // Prevent duplicate views within 1 hour per viewer
+    const cacheKey = `view:${videoId}:${viewerId}`;
+    if (redis) {
+        const alreadyViewed = await redis.get(cacheKey);
+        if (alreadyViewed) {
+            return res.status(200).json(new ApiResponse(200, {}, "View already recorded"));
+        }
+        await redis.setex(cacheKey, 3600, '1'); // 1 hour TTL
     }
     
+    // Update both models atomically
+    const [analytics] = await Promise.all([
+        VideoAnalytics.findOneAndUpdate(
+            { video: videoId },
+            { $inc: { views: 1 } },
+            { upsert: true, new: true }
+        ),
+        Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } })
+    ]);
+    
     return res.status(200).json(
-        new ApiResponse(200, { views: analytics.views }, "Video views updated successfully")
+        new ApiResponse(200, { views: analytics.views }, "View recorded successfully")
     );
 });
 

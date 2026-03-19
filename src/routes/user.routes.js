@@ -3,6 +3,8 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { changeCurrentPassword, getCurrentUser, loginUser, logoutUser, refreshAccessToken, registerUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage,getUserChannelProfile,getWatchHistory,clearWatchHistory } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"; 
 import { validateRegister } from "../middlewares/validate.middleware.js";
+import rateLimit from 'express-rate-limit';
+im
 /**
  * @swagger
  * /api/v1/users/register:

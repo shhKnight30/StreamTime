@@ -2,12 +2,24 @@ import { User } from "../models/user.models.js"
 
 export const addToWatchHistory = async (userId, videoId) => {
     try {
-        // Remove if already present, then prepend — keeps list unique and ordered by recency
-        await User.findByIdAndUpdate(userId, { $pull: { watchHistory: videoId } })
-        await User.findByIdAndUpdate(userId, {
-            $push: { watchHistory: { $each: [videoId], $position: 0 } }
-        })
+        const MAX_HISTORY = 200;
+        await User.findByIdAndUpdate(userId, [
+            // Stage 1: Remove existing occurrence
+            { $set: { watchHistory: { 
+                $filter: { 
+                    input: "$watchHistory", 
+                    cond: { $ne: ["$$this", new mongoose.Types.ObjectId(videoId)] }
+                }
+            }}},
+            // Stage 2: Prepend and limit
+            { $set: { watchHistory: { 
+                $slice: [
+                    { $concatArrays: [[new mongoose.Types.ObjectId(videoId)], "$watchHistory"] },
+                    MAX_HISTORY
+                ]
+            }}}
+        ]);
     } catch (e) {
-        // Non-critical — don't crash the video response if history update fails
+        logger.warn('Watch history update failed (non-critical):', e.message);
     }
-}
+};

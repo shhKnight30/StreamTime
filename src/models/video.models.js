@@ -112,4 +112,5 @@ videoSchema.plugin(mongooseAggregatePaginate)
 videoSchema.index({ visibility: 1, isPublished: 1, createdAt: -1 })  // getAllVideos
 videoSchema.index({ owner: 1, createdAt: -1 })                        // getUserVideos
 videoSchema.index({ category: 1, visibility: 1, isPublished: 1 })     // category filter
+videoSchema.index({ title: 'text', description: 'text', ownerName: 'text', ownerUsername: 'text' });
 export const Video = model('Video',videoSchema)

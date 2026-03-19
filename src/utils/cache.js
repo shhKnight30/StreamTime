@@ -1,7 +1,7 @@
 // src/utils/cache.js
 import Redis from 'ioredis'
 
-const redis = process.env.REDIS_URL
+export const redis = process.env.REDIS_URL
     ? new Redis(process.env.REDIS_URL, {
         retryStrategy: (times) => Math.min(times * 50, 2000),
         maxRetriesPerRequest: 3,

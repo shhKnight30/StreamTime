@@ -14,7 +14,7 @@ class WebSocketService {
     }
 
     initialize(server) {
-      
+    const chatRateLimiter = new Map();
 this.io = new Server(server, {
     cors: {
         origin: process.env.CORS_ORIGIN || "http://localhost:3000",
@@ -56,6 +56,11 @@ this.io = new Server(server, {
                 if (socket.data.user._id.toString() !== userId) {
                     return socket.emit('stream-error', { error: 'User ID mismatch' })
                 }
+
+                const stream = await LiveStream.findById(dbStreamId);
+                if (!stream || stream.streamer.toString() !== socket.data.user._id.toString()) {
+                    return socket.emit('stream-error', { error: 'Unauthorized stream access' });
+                }
                 await mediasoupService.cleanupStream(streamId)
                 await mediasoupService.startStreamInDB(streamId)
                 
@@ -67,6 +72,7 @@ this.io = new Server(server, {
                     startTime: new Date(),
                     isActive: true
                 })
+
 
                 this.streamPeers.set(streamId, new Map())
                 this.viewerConnections.set(streamId, new Set())
@@ -235,6 +241,18 @@ this.io = new Server(server, {
             })
 
             socket.on('send-chat-message', (data) => {
+                const now = Date.now();
+                const limiter = chatRateLimiter.get(socket.id) || { count: 0, resetAt: now + 60000 };
+                    if (now > limiter.resetAt) {
+                        limiter.count = 0;
+                        limiter.resetAt = now + 60000;
+                    }
+                    
+                    if (++limiter.count > 30) { // 30 messages/minute
+                        socket.emit('rate-limited', { message: 'Too many messages' });
+                        return;
+                    }
+                    chatRateLimiter.set(socket.id, limiter);
                 const { streamId, message, user } = data
                 
                 this.io.to(streamId).emit('new-chat-message', {
@@ -352,6 +370,7 @@ this.io = new Server(server, {
             })
 
             socket.on('disconnect', async () => {
+                chatRateLimiter.delete(socket.id)
                 logger.logWebSocket('User Disconnected', { socketId: socket.id })
 
                 for (const [streamId, streamInfo] of this.activeStreams.entries()) {

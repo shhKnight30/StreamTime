@@ -7,6 +7,10 @@ import { User } from "../models/user.models.js";
 import { Playlist } from "../models/playlist.model.js";
 import { Tweet } from "../models/tweet.model.js";
 import mongoose from "mongoose";
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+
 const addComment = asyncHandler(async (req , res ) =>{
     const { content , parentContentId} = req.body
     
@@ -17,7 +21,9 @@ const addComment = asyncHandler(async (req , res ) =>{
     if (!parentContentType) {
         throw new ApiError(400, "parentContentType is required")
     }
-
+    if (!isValidObjectId(parentContentId)) {
+    throw new ApiError(400, "Invalid parentContentId format");
+    }
     let parentExists
     switch(parentContentType){
         case 'Video':
