@@ -19,14 +19,20 @@ const storage = diskStorage({
 
 })
 
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/avi']
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
 export const upload = multer({
     storage,
     limits:{
         fileSize : 100*1024*1024
     },
-    fileFilter :(req,file,cb)=>{
-        logger.debug('Received file:', file.originalname, 'Size:', file.size);
-        cb(null,true)
+    fileFilter: (req, file, cb) => {
+        const allowed = [...ALLOWED_VIDEO_TYPES, ...ALLOWED_IMAGE_TYPES]
+        if (!allowed.includes(file.mimetype)) {
+            return cb(new ApiError(400, `File type ${file.mimetype} is not allowed`), false)
+        }
+        cb(null, true)
     }
 })
 

@@ -94,11 +94,9 @@ const loginUser = asyncHandler(async (req, res) => {
     // check crrect password\
     // if correct generate access token or refresh token 
     // send them in secure cookie
-    const body = async () => {
-        return req.body
-    }
-
-    const { email, password } = await body()
+    
+// 
+    const { email, password } = req.body
     if (!email) {
         throw new ApiError(400, "missingemail");
     }
@@ -114,22 +112,24 @@ const loginUser = asyncHandler(async (req, res) => {
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
+    //  FIXED — detect HTTPS from the request itself, or use an env flag
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' 
+               || process.env.FORCE_SECURE_COOKIES === 'true'
+
     const options = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',  // ← false on localhost
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+        secure: isSecure,
+        sameSite: isSecure ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
     }
     return res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
-        .json(new ApiResponse(
-            200,
-            {
-                user: loggedInUser, accessToken, refreshToken
-            },
-            "user logged in successfully"
-        ))
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(new ApiResponse(200, {
+        user: loggedInUser,
+        accessToken   // ← refreshToken intentionally omitted from body
+    }, "user logged in successfully"))
 })
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -140,11 +140,16 @@ const logoutUser = asyncHandler(async (req, res) => {
             new: true,
         }
     )
-        const options = {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',  // ← false on localhost
-                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-            }
+        // ✅ FIXED — detect HTTPS from the request itself, or use an env flag
+const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' 
+               || process.env.FORCE_SECURE_COOKIES === 'true'
+
+const options = {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
+}
     return res
         .status(200)
         .clearCookie("accessToken", options)
@@ -174,11 +179,16 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 
         }
-        const options = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',  // ← false on localhost
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-        }
+       // ✅ FIXED — detect HTTPS from the request itself, or use an env flag
+const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' 
+               || process.env.FORCE_SECURE_COOKIES === 'true'
+
+const options = {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
+}
         const { accessToken, newRefreshToken } = await generateAccessAndRefreshTokens(user._id)
 
         return res
@@ -396,25 +406,29 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
 const getWatchHistory = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20 } = req.query
+    const skip = (page - 1) * limit
 
-    const user = await User.findById(req.user._id)
-        .populate({
-            path: "watchHistory",
-            select: "title thumbnail duration views ownerName ownerUsername ownerAvatar createdAt",
-            options: {
-                limit: limit * 1,
-                skip: (page - 1) * limit,
-                sort: { createdAt: -1 }
-            }
-        })
-
+    const user = await User.findById(req.user._id).select('watchHistory')
     if (!user) throw new ApiError(404, "User not found")
 
     const total = user.watchHistory.length
 
+    // Slice the watchHistory array first, then populate
+    const slicedIds = user.watchHistory
+        .slice(skip, skip + Number(limit))
+
+    const videos = await Video.find({ _id: { $in: slicedIds } })
+        .select("title thumbnail duration views ownerName ownerUsername ownerAvatar createdAt")
+        .lean()
+
+    // Restore original order (find() doesn't preserve order)
+    const orderedVideos = slicedIds
+        .map(id => videos.find(v => v._id.toString() === id.toString()))
+        .filter(Boolean)
+
     return res.status(200).json(
         new ApiResponse(200, {
-            videos: user.watchHistory,
+            videos: orderedVideos,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),

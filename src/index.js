@@ -2,18 +2,18 @@ import dotenv from 'dotenv';
 import './config/env.js';
 
 import connectDB from './db/index.js';
-console.log("heelo")
 import { app } from './app.js'
 import http from 'http'
 import websocketServices from './services/websocket.service.js';
 import logger from './config/logger.js';
 import mongoose from 'mongoose';
 import mediasoupService from './services/mediasoup.service.js';
-
+import { validateEnv } from './config/validateEnv.js';
 const server = http.createServer(app)
 
 connectDB()
     .then(async () => {
+        validateEnv()
         // 1. Mediasoup FIRST — must exist before any socket events fire
         await mediasoupService.initialize()
         logger.info('Mediasoup SFU initialized successfully')
@@ -44,6 +44,14 @@ const gracefulShutdown = async (signal) => {
         logger.info('HTTP server closed')
 
         try {
+
+            const activeStreams = websocketServices.getActiveStreams()
+            for (const stream of activeStreams) {
+                websocketServices.broadcastToStream(stream.streamId, 'server-shutdown', {
+                    message: 'Server is restarting. Please reconnect in a moment.'
+                })
+                await mediasoupService.cleanupStream(stream.streamId)
+            }
             await mongoose.connection.close()
             logger.info('MongoDB connection closed')
             process.exit(0)
@@ -52,6 +60,10 @@ const gracefulShutdown = async (signal) => {
             process.exit(1)
         }
     })
+    setTimeout(() => {
+        logger.error('Forced shutdown after timeout')
+        process.exit(1)
+    }, 30000)
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))

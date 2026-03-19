@@ -3,7 +3,8 @@ import logger from '../config/logger.js'
 import mediasoupService from './mediasoup.service.js'
 import { LiveStream } from '../models/livestream.model.js'
 import recordingService from './recording.service.js'
-
+import jwt from "jsonwebtoken"
+import { User } from "../models/user.models.js"
 class WebSocketService {
     constructor() {
         this.io = null
@@ -13,20 +14,27 @@ class WebSocketService {
     }
 
     initialize(server) {
-        this.io = new Server(server, {
-            cors: {
-                origin: "http://localhost:3000",
-                methods: ["GET", "POST"],
-                credentials: true
-            }
-        })
+      
+this.io = new Server(server, {
+    cors: {
+        origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true,
+    },
+    transports: ["websocket", "polling"],
+})
 
         this.io.on('connection', (socket) => {
             logger.logWebSocket('User Connected', { socketId: socket.id })
 
             socket.on('start-webrtc-stream', async (data) => {
                 const { streamId, userId, streamTitle, dbStreamId } = data
-
+                if (!socket.data.user) {
+                    return socket.emit('stream-error', { error: 'Authentication required to stream' })
+                }
+                if (socket.data.user._id.toString() !== userId) {
+                    return socket.emit('stream-error', { error: 'User ID mismatch' })
+                }
                 await mediasoupService.cleanupStream(streamId)
                 await mediasoupService.startStreamInDB(streamId)
                 
@@ -139,6 +147,14 @@ class WebSocketService {
                     })
 
                     const streamId = mediasoupService.transports.get(transportId).streamId
+                    if (streamId) {
+                        socket.to(streamId).emit('new-producer', {
+                            producerId: producerData.id,
+                            kind: producerData.kind
+                        })
+                    }
+
+
                     const producers = mediasoupService.getStreamProducers(streamId)
                     
                     if (producers.some(p => p.kind === 'video')) {

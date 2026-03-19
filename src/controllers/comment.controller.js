@@ -56,46 +56,51 @@ const addComment = asyncHandler(async (req , res ) =>{
     )
 })
 
-const getComments = asyncHandler(async (req , res)=>{
-    let {parentContentType , parentContentId , page=1 ,limit =10}= req.query 
-
-
+const getComments = asyncHandler(async (req, res) => {
+    let { parentContentType, parentContentId, page = 1, limit = 10 } = req.query
     parentContentType = parentContentType
         ? parentContentType.charAt(0).toUpperCase() + parentContentType.slice(1).toLowerCase()
         : null
-    const comments = await Comment.find({
-        parentContentId,
-        parentContentType,
-    })
-    .populate('user', 'username fullname avatar')
-    .sort({createdAt :-1})
-    .limit(limit*1)
-    .skip((page-1)*limit)
 
-    const commentsWithStats  = await Promise.all(
-        comments.map(async(comment) =>{
-            const replyCount = await Comment.countDocuments({
-                parentContentType :'comment',
-                parentContentId : comment._id
-            })
-            return {...comment.toObject() , replyCount}
-        })
-    )
-    const total = await Comment.countDocuments({
-        parentContentType,
-        parentContentId
-    })
+    const comments = await Comment.aggregate([
+        { $match: { parentContentId: new mongoose.Types.ObjectId(parentContentId), parentContentType } },
+        { $sort: { createdAt: -1 } },
+        { $skip: (page - 1) * Number(limit) },
+        { $limit: Number(limit) },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'user',
+                pipeline: [{ $project: { username: 1, fullname: 1, avatar: 1 } }]
+            }
+        },
+        { $unwind: { path: '$user', preserveNullAndEmpty: false } },
+        {
+            $lookup: {
+                from: 'comments',
+                localField: '_id',
+                foreignField: 'parentContentId',
+                as: 'replies',
+                pipeline: [{ $match: { parentContentType: 'Comment' } }, { $count: 'count' }]
+            }
+        },
+        {
+            $addFields: {
+                replyCount: { $ifNull: [{ $arrayElemAt: ['$replies.count', 0] }, 0] }
+            }
+        },
+        { $project: { replies: 0 } }
+    ])
+
+    const total = await Comment.countDocuments({ parentContentId, parentContentType })
+
     return res.status(200).json(
         new ApiResponse(200, {
-            comments:commentsWithStats,
-            // commentsWithReplyCount,
-            pagination :{
-                page,
-                limit,
-                total,
-                pages : Math.ceil(total/limit)
-            }
-        },"Comments Retrieved Successfully")
+            comments,
+            pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) }
+        }, "Comments Retrieved Successfully")
     )
 })
 

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { createLiveStream,getLiveStreamById,getLiveStreams,updateLiveStream,deleteLiveStream,startLiveStream,stopLiveStream,startWebRTCStream,stopWebRTCStream,getWebRTCStreamInfo,getActiveWebRTCStreams,getWebRTCStats } from "../controllers/liveStream.controller.js";
-
+import mongoose from "mongoose";
+import { validateLiveStream } from "../middlewares/validate.middleware.js";
 const router = Router()
 
 /**
@@ -102,7 +103,7 @@ const router = Router()
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
-router.route('/create').post(verifyJWT,createLiveStream)
+router.route('/create').post(verifyJWT,validateLiveStream,createLiveStream)
 
 /**
  * @swagger
@@ -348,6 +349,17 @@ router.route('/webrtc/active').get(getActiveWebRTCStreams)
  */
 router.route('/webrtc/stats').get(getWebRTCStats)
 
+
+//  an explicit guard against non-ObjectId params
+const validateObjectId = (req, res, next) => {
+    // const mongoose = await import('mongoose')
+    if (!mongoose.Types.ObjectId.isValid(req.params.streamId)) {
+        return res.status(400).json({ success: false, message: "Invalid stream ID format" })
+    }
+    next()
+}
+
+
 /**
  * @swagger
  * /api/v1/live-stream/{streamId}:
@@ -386,7 +398,7 @@ router.route('/webrtc/stats').get(getWebRTCStats)
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
-router.route('/:streamId').get(getLiveStreamById)
+router.route('/:streamId').get(validateObjectId,getLiveStreamById)
 
 /**
  * @swagger

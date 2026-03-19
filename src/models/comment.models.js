@@ -27,4 +27,6 @@ const commentSchema = new Schema({
     
 }, {timestamps:true})
 commentSchema.plugin(mongooseAggregatePaginate);
+commentSchema.index({ parentContentId: 1, parentContentType: 1, createdAt: -1 })
+commentSchema.index({ user: 1, createdAt: -1 })
 export const Comment = mongoose.model("Comment",commentSchema);

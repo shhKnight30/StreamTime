@@ -5,13 +5,14 @@ import rateLimit from 'express-rate-limit';
 import { requestLogger,errorLogger,performanceLogger } from './middlewares/logger.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 import './config/env.js';
+import helmet from 'helmet';
 const app = express()
 
 // Rate limiting for production-grade resilience
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 1000, // limit each IP to 100 requests
-    message: 'Too many requests from this IP, please try again later.',
+    message: 'Too many requests from this IP, please try again after 15 mins.',
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -22,7 +23,15 @@ app.use(cors({
     credentials : true
     
 }))
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },  // allow S3 images
+    contentSecurityPolicy: false  // configure separately if needed
+}))
 
+app.use((req, res, next) => {
+    res.setHeader('ngrok-skip-browser-warning', 'true')
+    next()
+})
 app.use(limiter); 
 
 app.use(express.json({limit:"16kb"}))
@@ -78,6 +87,10 @@ app.use('/api/v1/tweet', tweetRouter)
 app.use('/api/v1/live-stream',liveStreamRouter)
 app.use('/api/v1/analytics', analyticsRouter)
 app.use('/api/v1/dashboard', dashboardRouter)
+app.use(notFoundHandler)
+app.use(errorLogger)
+app.use(errorHandler)
+
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
@@ -85,8 +98,4 @@ app.use((err, req, res, next) => {
         message: err.message || "Internal Server Error"
     });
 });
-app.use(notFoundHandler)
-app.use(errorLogger)
-app.use(errorHandler)
-
 export {app} 

@@ -87,7 +87,7 @@ const getLikes = asyncHandler(async (req, res) =>{
 })
 
 const getUserLikes = asyncHandler(async (req, res)=>{
-    const { page =1 ,limit = 1, contentType } = req.query
+    const { page =1 ,limit = 10, contentType } = req.query
 
     const query = {user : req.user?._id}
     if(contentType){

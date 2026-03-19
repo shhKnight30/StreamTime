@@ -100,7 +100,8 @@ const getAllVideos = asyncHandler(async (req,res)=>{
     const videos = await Video.find(query)
         .sort({createdAt: -1})
         .limit(limit*1)
-        .skip((page-1)*limit);
+        .skip((page-1)*limit)
+        .lean()
 
     const total = await Video.countDocuments(query);
 
@@ -133,7 +134,6 @@ const getVideoById = asyncHandler(async (req, res) =>{
     if(video.visibility==='private' && video.owner.toString() !==req.user?._id.toString()){
         throw new ApiError(403, "Access denied")
     }
-    await video.save()
     if (req.user?._id) {
         await addToWatchHistory(req.user._id, videoId)
     }

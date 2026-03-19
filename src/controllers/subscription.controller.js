@@ -50,10 +50,11 @@ const getChannelSubscribers = asyncHandler(async (req, res)=>{
     const {channelId} = req.params
     const {page = 1 , limit = 10} = req.query
     const subscribers = await Subscription.find({channel: channelId})
-    .populate('channel', 'username fullname avatar subscriberCount')
+    .populate('subscriber', 'username fullname avatar subscriberCount')
     .limit(limit *1 )
     .skip((page - 1) * limit)
     .sort({createdAt : -1})
+    .lean()
     const total = await Subscription.countDocuments({channel : channelId})
 
     return res.status(200).json(
@@ -96,10 +97,11 @@ const getUserSubscriptions = asyncHandler(async (req, res)=>{
 
 const checkSubscriptionStatus = asyncHandler(async (req,res)=>{
     const {channelId } = req.params 
-    const isSubscribed = await Subscription.exists({
-        subscriber: req.user?._id,
-        channel : channelId
+    const subscriptionDoc = await Subscription.exists({
+    subscriber: req.user?._id,
+    channel: channelId
     })
+    const isSubscribed = !!subscriptionDoc 
     return res.status(200)
     .json( new ApiResponse(200, {isSubscribed} , "Subscription status CHECKED"))
 })

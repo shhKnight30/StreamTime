@@ -109,5 +109,7 @@ const videoSchema = Schema({
     timestamps:true,
 })
 videoSchema.plugin(mongooseAggregatePaginate)
-
+videoSchema.index({ visibility: 1, isPublished: 1, createdAt: -1 })  // getAllVideos
+videoSchema.index({ owner: 1, createdAt: -1 })                        // getUserVideos
+videoSchema.index({ category: 1, visibility: 1, isPublished: 1 })     // category filter
 export const Video = model('Video',videoSchema)
