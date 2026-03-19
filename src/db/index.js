@@ -136,7 +136,7 @@ class DatabaseManager {
     }
 }
 
-const dbManager = new DatabaseManager();
+export const dbManager = new DatabaseManager();
 
 const connectDB = async ()=>{
     try {

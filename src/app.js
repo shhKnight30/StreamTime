@@ -6,6 +6,8 @@ import { requestLogger,errorLogger,performanceLogger } from './middlewares/logge
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 import './config/env.js';
 import helmet from 'helmet';
+import { dbManager } from './db/index.js';
+import mediasoupService from './services/mediasoup.service.js';
 const app = express()
 
 // Rate limiting for production-grade resilience
@@ -48,7 +50,7 @@ app.use(express.urlencoded({extended:true,limit:'4kb'}))
 app.use(express.static('public'))
 app.use(cookieParser())
 
-
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/health', async (req, res) => {
     const dbHealth = await dbManager.healthCheck();
     const mediasoupHealth = mediasoupService.workers.length > 0 ? 'healthy' : 'unhealthy';

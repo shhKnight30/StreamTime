@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { LiveStreamAnalytics } from "../models/liveStreamAnalytics.models.js";
 import { redis } from "../utils/cache.js";
+import { Video } from "../models/video.models.js";
 const getVideoAnalytics = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
 

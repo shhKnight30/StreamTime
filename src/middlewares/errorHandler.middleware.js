@@ -62,11 +62,15 @@ const errorHandler = (err, req, res, next) => {
  * Handles unmatched routes
  */
 const notFoundHandler = (req, res, next) => {
+    // Ignore favicon requests silently
+    if (req.path === '/favicon.ico') {
+        return res.status(204).end();
+    }
+
     const error = new Error(`Route ${req.method} ${req.originalUrl} not found`);
     error.statusCode = 404;
     error.success = false;
 
-    // Log 404 as info, not error
     logger.info('Route Not Found', {
         requestId: req.requestId,
         method: req.method,

@@ -1,4 +1,3 @@
-import dotenv from 'dotenv';
 import './config/env.js';
 
 import connectDB from './db/index.js';

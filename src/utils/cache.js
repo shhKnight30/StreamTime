@@ -1,43 +1,52 @@
-// src/utils/cache.js
 import Redis from 'ioredis'
 
 export const redis = process.env.REDIS_URL
     ? new Redis(process.env.REDIS_URL, {
-        retryStrategy: (times) => Math.min(times * 50, 2000),
-        maxRetriesPerRequest: 3,
+        retryStrategy: (times) => {
+            if (times > 3) {
+                // Stop retrying after 3 attempts — don't spam logs
+                return null;
+            }
+            return Math.min(times * 500, 2000);
+        },
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,  // ← don't queue commands when disconnected
+        lazyConnect: true,          // ← don't connect immediately on creation
     })
     : null
 
 if (redis) {
-    redis.on('error', (err) => console.error('Redis error:', err.message))
-    redis.on('connect', () => console.info('Redis connected'))
+    redis.on('error', (err) => {
+        // Show the actual error, not just message (which can be undefined)
+        console.error('Redis error:', err.code || err.message || String(err));
+    });
+    redis.on('connect', () => console.info('Redis connected'));
 }
 
 export const withCache = async (key, ttlSeconds, fetchFn) => {
-    if (!redis) return fetchFn()
+    if (!redis) return fetchFn();
 
     try {
-        const cached = await redis.get(key)
-        if (cached) return JSON.parse(cached)
+        const cached = await redis.get(key);
+        if (cached) return JSON.parse(cached);
 
-        const data = await fetchFn()
+        const data = await fetchFn();
         if (data !== null && data !== undefined) {
-            await redis.setex(key, ttlSeconds, JSON.stringify(data))
+            await redis.setex(key, ttlSeconds, JSON.stringify(data));
         }
-        return data
+        return data;
     } catch (err) {
-        console.error('Cache error, falling through to DB:', err.message)
-        return fetchFn()
+        // Cache miss — fall through to DB silently
+        return fetchFn();
     }
-}
+};
 
-// ← ADD THIS EXPORT
 export const invalidateCache = async (pattern) => {
-    if (!redis) return
+    if (!redis) return;
     try {
-        const keys = await redis.keys(pattern)
-        if (keys.length > 0) await redis.del(...keys)
+        const keys = await redis.keys(pattern);
+        if (keys.length > 0) await redis.del(...keys);
     } catch (err) {
-        console.error('Cache invalidation error:', err.message)
+        // non-critical
     }
-}
+};

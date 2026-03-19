@@ -203,51 +203,41 @@ const getUserVideos = asyncHandler(async ( req , res) =>{
         }},"user videos fetched successfully"))
 })
 
-const searchVideos = asyncHandler(async (req,res) =>{
-    const { q , page =1 , limit = 10 , category , tags} = req.query
+const searchVideos = asyncHandler(async (req, res) => {
+    const { q, page = 1, limit = 10, category, tags } = req.query;
+    
     let query = {
-        visibility : 'public',
-        isPublished : true
-    }
-    if(q){
+        visibility: 'public',
+        isPublished: true
+    };
+    
+    if (q) {
         query.$or = [
-            {title :{ $regex : q, $options : 'i'}},
-            {description : { $regex : q , $options : 'i'}},
-            {tags : {$in : [ new RegExp(q,'i')]}},
-            {ownerName : {$regex : q , $options :'i'}},
-            {ownerUsername : {$regex : q , $options : 'i'}}
-        ]
-        query.$text = { $search: q }; // Use text index instead of multiple $regex
-        sortStage = { score: { $meta: 'textScore' }, ...sortStage };
+            { title: { $regex: q, $options: 'i' } },
+            { description: { $regex: q, $options: 'i' } },
+            { tags: { $in: [new RegExp(q, 'i')] } },
+            { ownerName: { $regex: q, $options: 'i' } },
+            { ownerUsername: { $regex: q, $options: 'i' } }
+        ];
     }
-    if(category){
-        query.category = category
-    }
-    if(tags){
-        query.tags = {$in : tags.split(',')}
-    }
+    
+    if (category) query.category = category;
+    if (tags) query.tags = { $in: tags.split(',') };
+    
     const videos = await Video.find(query)
-        .sort({createdAt : -1})
-        .limit(limit*1)
-        .skip((page-1)*limit)
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
 
-    const total = await Video.countDocuments(query)
+    const total = await Video.countDocuments(query);
 
     return res.status(200).json(
-        new ApiResponse(200,
-            {
-                videos,
-                pagination: {
-                    page,
-                    limit,
-                    total,
-                    pages : Math.ceil(total/limit)
-                }
-            },
-            "Videos found Successfully"
-        )
-    )
-})
+        new ApiResponse(200, {
+            videos,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+        }, "Videos found Successfully")
+    );
+});
 
 
 export {

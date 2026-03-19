@@ -4,7 +4,7 @@ import { changeCurrentPassword, getCurrentUser, loginUser, logoutUser, refreshAc
 import { upload } from "../middlewares/multer.middleware.js"; 
 import { validateRegister } from "../middlewares/validate.middleware.js";
 import rateLimit from 'express-rate-limit';
-im
+
 /**
  * @swagger
  * /api/v1/users/register:

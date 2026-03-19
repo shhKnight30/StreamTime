@@ -1,5 +1,5 @@
 import { User } from "../models/user.models.js"
-
+import mongoose from "mongoose";
 export const addToWatchHistory = async (userId, videoId) => {
     try {
         const MAX_HISTORY = 200;
